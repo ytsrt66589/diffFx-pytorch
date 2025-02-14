@@ -1,0 +1,25 @@
+[project]
+name = "diffFx_pytorch"
+version = "0.0.1"
+description = "Differentiable audio effect processors in PyTorch."
+authors = [
+    { name = "Yen-Tung (Arthur) Yeh" },
+    { email = "ytsrt66589@gmail.com" },
+]
+dependencies = ["torch", "torchaudio", "numpy",  "scipy", "torchlpc", "torchcomp"]
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "Apache License 2.0"}
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Scientific/Engineering",
+]
+
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = ["setuptools", "wheel", "attrs"]
+build-backend = "setuptools.build_meta"
+
+[project.optional-dependencies]
+extra = ["matplotlib", "librosa"]
