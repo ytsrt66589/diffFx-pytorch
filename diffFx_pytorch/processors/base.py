@@ -51,15 +51,15 @@ class ProcessorsBase(nn.Module):
             for name, param in self.params.items()
         }
     
-    def forward(self, x: torch.Tensor, norm_params: Union[torch.Tensor, None] = None, dsp_params: Union[torch.Tensor, None] = None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, norm_params: Union[torch.Tensor, None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         check_params(norm_params, dsp_params)
         params_dict, dsp_params_dict = None, None
         if norm_params is not None:
             assert len(norm_params.shape) == 2, "Expected 2D tensor" # Check if tensor is 2D [b, num_params]
             params_dict = self._tensor_to_dict(norm_params)
         if dsp_params is not None:
-            assert len(dsp_params.shape) == 2, "Expected 2D tensor" # Check if tensor is 2D [b, num_params]
-            dsp_params_dict = self._tensor_to_dict(dsp_params)
+            # assert len(dsp_params.shape) == 2, "Expected 2D tensor" # Check if tensor is 2D [b, num_params]
+            dsp_params_dict = dsp_params #self._tensor_to_dict(dsp_params)
         return self.process(x, params_dict, dsp_params_dict)
     
     def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 

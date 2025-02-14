@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple, Union
 
 from enum import Enum
 
-from ..base_utils import check_params
+from ..base_utils import check_params 
 from ..base import ProcessorsBase, EffectParam
 from ..filters import BiquadFilter
 
@@ -61,35 +61,36 @@ class ParametricEqualizer(ProcessorsBase):
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         
         check_params(norm_params, dsp_params)
+        denorm_params = self.map_parameters(norm_params)
         
+        # print('norm_params: ', norm_params)
         if norm_params is not None:
-            norm_low_shelf_params = {
-                'gain_db': norm_params['low_shelf_gain_db'],
-                'frequency': norm_params['low_shelf_frequency'],
-                'q_factor': norm_params['low_shelf_q_factor']
+            denorm_params = self.map_parameters(norm_params)
+            low_shelf_params = {
+                'gain_db': denorm_params['low_shelf_gain_db'],
+                'frequency': denorm_params['low_shelf_frequency'],
+                'q_factor': denorm_params['low_shelf_q_factor']
             }
-            low_shelf_params = self.map_parameters(norm_low_shelf_params)
-            x_processed = self.low_shelf_filter(x, low_shelf_params, None)
+            
+            x_processed = self.low_shelf_filter(x,  dsp_params=low_shelf_params)
             
             # Apply peak filters
             for i in range(self.num_peak_filters):
                 peak_name = f'peak_{i+1}'
-                norm_peak_params = {
-                    'gain_db': norm_params[f'{peak_name}_gain_db'],
-                    'frequency': norm_params[f'{peak_name}_frequency'],
-                    'q_factor': norm_params[f'{peak_name}_q_factor']
+                peak_params = {
+                    'gain_db': denorm_params[f'{peak_name}_gain_db'],
+                    'frequency': denorm_params[f'{peak_name}_frequency'],
+                    'q_factor': denorm_params[f'{peak_name}_q_factor']
                 }
-                peak_params = self.map_parameters(norm_peak_params)
-                x_processed = self.peak_filters[i](x_processed, peak_params, None)
+                x_processed = self.peak_filters[i](x_processed, dsp_params=peak_params)
             
             # Apply high shelf filter
-            norm_high_shelf_params = {
-                'gain_db': norm_params['high_shelf_gain_db'],
-                'frequency': norm_params['high_shelf_frequency'],
-                'q_factor': norm_params['high_shelf_q_factor']
+            high_shelf_params = {
+                'gain_db': denorm_params['high_shelf_gain_db'],
+                'frequency': denorm_params['high_shelf_frequency'],
+                'q_factor': denorm_params['high_shelf_q_factor']
             }
-            high_shelf_params = self.map_parameters(norm_high_shelf_params)
-            x_processed = self.high_shelf_filter(x_processed, high_shelf_params, None)
+            x_processed = self.high_shelf_filter(x_processed, dsp_params=high_shelf_params)
         else:
             low_shelf_params = {
                 'gain_db': dsp_params['low_shelf_gain_db'],
