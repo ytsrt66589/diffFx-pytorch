@@ -12,7 +12,115 @@ from ..core.midside import *
 from ..filters import LinkwitzRileyFilter
 
 
-class Imager(ProcessorsBase):
+class StereoImager(ProcessorsBase):
+    """Differentiable implementation of a multi-band stereo imaging processor.
+    
+    This processor implements frequency-dependent stereo width control using mid-side (M/S) 
+    processing combined with Linkwitz-Riley crossover filters. It allows independent width 
+    control over multiple frequency bands, enabling precise stereo field manipulation 
+    across the frequency spectrum.
+
+    The processor splits the signal into frequency bands using a series of Linkwitz-Riley 
+    crossover filters, processes each band's stereo width independently, then recombines 
+    the bands.
+
+    Processing Chain:
+        1. Convert L/R to M/S representation
+        2. Split M/S signals into frequency bands using crossovers
+        3. Apply independent width control to each band
+        4. Sum processed bands
+        5. Convert back to L/R representation
+
+    The width control for each band follows:
+
+    .. math::
+
+        M_{out} = M_{in} * 2(1 - width)
+        
+        S_{out} = S_{in} * 2(width)
+
+    where:
+        - M is the mid (mono) signal for the band
+        - S is the side (difference) signal for the band
+        - width is the stereo width control parameter for that band
+
+    Args:
+        sample_rate (int): Audio sample rate in Hz
+        num_bands (int): Number of frequency bands. Defaults to 3.
+
+    Attributes:
+        crossovers (nn.ModuleList): List of Linkwitz-Riley crossover filters
+        num_bands (int): Number of frequency bands
+
+    Parameters Details:
+        For each band i:
+            bandX_width: Stereo width control for band X
+                - 0.0: Mono (only mid signal)
+                - 0.5: Original stereo
+                - 1.0: Maximum width (enhanced side signal)
+
+        For each crossover i:
+            crossoverX_freq: Crossover frequency between bands X and X+1
+                - Frequency range scales with band number
+                - Default ranges follow standard mastering crossover points
+                - Min frequency doubles for each successive crossover
+                - Max frequency is limited to 20kHz
+
+    Note:
+        - Input must be stereo (two channels)
+        - Uses energy-preserving M/S conversion matrices
+        - Linkwitz-Riley crossovers ensure phase coherence
+        - Total number of parameters = 2 * num_bands - 1
+        - Width controls affect the ratio of mid to side signal per band
+
+    Warning:
+        When using with neural networks:
+            - norm_params must be in range [0, 1]
+            - Parameters will be automatically mapped to their ranges
+            - Ensure your network output is properly normalized (e.g., using sigmoid)
+            - Parameter order must match _register_default_parameters()
+
+    Examples:
+        Basic DSP Usage:
+            >>> # Create a 3-band stereo imager
+            >>> imager = StereoImager(
+            ...     sample_rate=44100,
+            ...     num_bands=3
+            ... )
+            >>> # Process with different width for each band
+            >>> output = imager(input_audio, dsp_params={
+            ...     'band0_width': 0.3,  # Reduce width in low frequencies
+            ...     'band1_width': 0.5,  # Keep mids unchanged
+            ...     'band2_width': 0.8,  # Enhance width in highs
+            ...     'crossover0_freq': 200.0,  # Low/mid crossover
+            ...     'crossover1_freq': 2000.0  # Mid/high crossover
+            ... })
+
+        Neural Network Control:
+            >>> # 1. Simple parameter prediction
+            >>> class ImagerController(nn.Module):
+            ...     def __init__(self, input_size, num_params):
+            ...         super().__init__()
+            ...         self.net = nn.Sequential(
+            ...             nn.Linear(input_size, 32),
+            ...             nn.ReLU(),
+            ...             nn.Linear(32, num_params),
+            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
+            ...         )
+            ...     
+            ...     def forward(self, x):
+            ...         return self.net(x)
+            >>> 
+            >>> # Initialize controller
+            >>> imager = StereoImager(num_bands=3)
+            >>> num_params = imager.count_num_parameters()  # 5 parameters for 3 bands
+            >>> controller = ImagerController(input_size=16, num_params=num_params)
+            >>> 
+            >>> # Process with features
+            >>> features = torch.randn(batch_size, 16)  # Audio features
+            >>> norm_params = controller(features)
+            >>> output = imager(input_audio, norm_params=norm_params)
+    """
     def __init__(self, sample_rate, num_bands=3):
         self.num_bands = num_bands
         super().__init__(sample_rate)
@@ -24,6 +132,12 @@ class Imager(ProcessorsBase):
         ])
     
     def _register_default_parameters(self):
+        """Register parameters for band widths and crossover frequencies.
+        
+        Sets up:
+            - Width control for each frequency band (0.0 to 1.0)
+            - Crossover frequencies between bands (frequency ranges scale with band)
+        """
         self.params = {}
         # Width controls for each band (0 = only mid, 1 = only side)
         for i in range(self.num_bands):
@@ -44,7 +158,19 @@ class Imager(ProcessorsBase):
     
     def _apply_width(self, mid: torch.Tensor, side: torch.Tensor, 
                      width: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Apply stereo width to mid/side signals"""
+        """Apply stereo width processing to mid/side signals for a single band.
+        
+        Args:
+            mid (torch.Tensor): Mid signal for the band. Shape: (batch, 1, samples)
+            side (torch.Tensor): Side signal for the band. Shape: (batch, 1, samples)
+            width (torch.Tensor): Width control parameter. Shape: (batch,)
+            
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Processed (mid, side) signals
+            
+        Note:
+            Scales mid and side signals to maintain constant energy across width settings
+        """
         width = width.view(-1, 1, 1)  # Reshape for broadcasting
         return (
             mid * (2 * (1 - width)),  # Scale mid based on width
@@ -53,7 +179,27 @@ class Imager(ProcessorsBase):
     
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+        """Process input signal through the multi-band stereo imager.
         
+        Args:
+            x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
+            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                If provided, norm_params must be None.
+                
+        Returns:
+            torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
+            
+        Processing steps:
+            1. Convert to M/S representation
+            2. Split into frequency bands using crossovers
+            3. Apply width processing to each band
+            4. Sum processed bands
+            5. Convert back to L/R representation
+            
+        Raises:
+            AssertionError: If input is not stereo (two channels)
+        """
         check_params(norm_params, dsp_params)
         
         if norm_params is not None:

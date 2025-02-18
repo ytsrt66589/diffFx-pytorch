@@ -1,11 +1,13 @@
 # Import main classes from each module
-from .enhancer import Enhancer
-from .imager import Imager
-from .widener import Widener
+from .panning import StereoPanning
+from .enhancer import StereoEnhancer
+from .imager import StereoImager
+from .widener import StereoWidener
 
 # Make them available when importing from filters
 __all__ = [
-    'Enhancer',
-    'Imager',
-    'Widener'
+    'StereoPanning',
+    'StereoEnhancer',
+    'StereoImager',
+    'StereoWidener'
 ]

@@ -12,15 +12,140 @@ from ..core.midside import *
 from ..core.phase import unwrap_phase
 
 # Haas Effect 
-class Enhancer(ProcessorsBase):
+class StereoEnhancer(ProcessorsBase):
+    """Differentiable implementation of stereo enhancement using the Haas effect.
+    
+    This processor implements stereo enhancement using the Haas effect (precedence effect),
+    which creates an enhanced sense of stereo width by introducing small time delays between
+    channels. The implementation combines mid-side processing with frequency-domain delay
+    to achieve precise control over the stereo image.
+
+    The Haas effect exploits the human auditory system's precedence effect, where delays
+    between 1-30ms affect spatial perception without creating distinct echoes. The processor
+    applies the delay in the frequency domain for artifact-free time shifting.
+
+    Processing Chain:
+        1. Convert L/R to M/S representation
+        2. Apply frequency-domain delay to side signal
+        3. Apply width scaling to delayed side signal
+        4. Convert back to L/R representation
+
+    The frequency domain delay is implemented as:
+
+    .. math::
+
+        S_{delayed}(f) = S(f) * e^{-j2\\pi f \\tau}
+
+    where:
+        - S(f) is the side signal in frequency domain
+        - f is frequency
+        - τ is the delay time in seconds
+        - Phase is unwrapped to ensure continuous delay
+
+    Args:
+        sample_rate (int): Audio sample rate in Hz
+
+    Parameters Details:
+        delay_ms: Delay time for the Haas effect
+            - Range: 0 to 30 milliseconds
+            - Values around 10-15ms typically most effective
+            - Controls the perceived spatial width
+            - Based on psychoacoustic precedence effect
+            
+        width: Overall stereo width control
+            - Range: 0.0 to 1.0
+            - 0.0: No enhancement (original signal)
+            - 1.0: Maximum enhancement
+            - Scales the processed side signal
+
+    Note:
+        - Input must be stereo (two channels)
+        - Uses frequency domain processing for precise delays
+        - Phase unwrapping ensures continuous delay response
+        - Delay range chosen based on psychoacoustic research
+        - Maintains mono compatibility
+        - Most effective on transient-rich material
+
+    Warning:
+        When using with neural networks:
+            - norm_params must be in range [0, 1]
+            - Parameters will be automatically mapped to their ranges
+            - Ensure your network output is properly normalized (e.g., using sigmoid)
+            - Parameter order must match _register_default_parameters()
+        
+        High delay values (>20ms) may cause noticeable separation of channels,
+        particularly on transient material.
+
+    Examples:
+        Basic DSP Usage:
+            >>> # Create a stereo enhancer
+            >>> enhancer = StereoEnhancer(sample_rate=44100)
+            >>> # Process with moderate Haas effect
+            >>> output = enhancer(input_audio, dsp_params={
+            ...     'delay_ms': 12.0,  # 12ms delay for natural width
+            ...     'width': 0.7      # 70% enhancement amount
+            ... })
+
+        Neural Network Control:
+            >>> # 1. Simple parameter prediction
+            >>> class EnhancerController(nn.Module):
+            ...     def __init__(self, input_size):
+            ...         super().__init__()
+            ...         self.net = nn.Sequential(
+            ...             nn.Linear(input_size, 32),
+            ...             nn.ReLU(),
+            ...             nn.Linear(32, 2),  # 2 parameters: delay and width
+            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
+            ...         )
+            ...     
+            ...     def forward(self, x):
+            ...         return self.net(x)
+            >>> 
+            >>> # Initialize controller
+            >>> enhancer = StereoEnhancer(sample_rate=44100)
+            >>> controller = EnhancerController(input_size=16)
+            >>> 
+            >>> # Process with features
+            >>> features = torch.randn(batch_size, 16)  # Audio features
+            >>> norm_params = controller(features)
+            >>> output = enhancer(input_audio, norm_params=norm_params)
+    """
     def _register_default_parameters(self):
+        """Register delay and width parameters.
+        
+        Sets up:
+            - delay_ms: Haas effect delay time (0 to 30 ms)
+            - width: Enhancement amount (0.0 to 1.0)
+        """
         self.params = {
             'delay_ms': EffectParam(min_val=0.0, max_val=30.0),
             'width': EffectParam(min_val=0.0, max_val=1.0)
         }
     
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+        """Process input signal through the stereo enhancer.
         
+        Args:
+            x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
+            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                If provided, norm_params must be None.
+                
+        Returns:
+            torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
+            
+        Processing steps:
+            1. Convert to M/S representation
+            2. Apply frequency-domain delay to side signal
+            3. Scale delayed side signal by width parameter
+            4. Convert back to L/R representation
+            
+        Raises:
+            AssertionError: If input is not stereo (two channels)
+            
+        Note:
+            Uses FFT-based delay for precise time shifting without artifacts
+        """
         check_params(norm_params, dsp_params)
         
         if norm_params is not None:

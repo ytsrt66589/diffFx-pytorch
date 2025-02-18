@@ -13,6 +13,120 @@ from ..filters import BiquadFilter
 
 # Parametric Equalizer 
 class ParametricEqualizer(ProcessorsBase):
+    """Differentiable implementation of a parametric equalizer.
+    
+    This processor implements a versatile parametric equalizer combining multiple peak filters
+    with high and low shelf filters. Each filter section provides independent control over
+    gain, frequency, and bandwidth (Q factor), offering precise frequency response shaping
+    capabilities.
+
+    The equalizer consists of:
+        - A low shelf filter for controlling the bass region
+        - Multiple peak filters for surgical midrange control
+        - A high shelf filter for controlling the treble region
+
+    Processing Chain:
+        1. Low Shelf: Apply bass control with adjustable frequency and slope
+        2. Peak Filters: Apply multiple bands of peak/notch equalization
+        3. High Shelf: Apply treble control with adjustable frequency and slope
+
+    Each filter section uses a second-order IIR (biquad) implementation with transfer function:
+
+    .. math::
+
+        H(z) = \\frac{b_0 + b_1z^{-1} + b_2z^{-2}}{1 + a_1z^{-1} + a_2z^{-2}}
+
+    where coefficients are computed based on:
+        - Filter type (peak, low shelf, or high shelf)
+        - Center/corner frequency
+        - Q factor (bandwidth/slope)
+        - Gain setting
+
+    Args:
+        sample_rate (int): Audio sample rate in Hz
+        num_peak_filters (int): Number of independent peak filters. Defaults to 3.
+
+    Attributes:
+        peak_filters (list): List of peak filter instances
+        low_shelf_filter (BiquadFilter): Low shelf filter instance
+        high_shelf_filter (BiquadFilter): High shelf filter instance
+
+    Parameters Details:
+        Low Shelf Section:
+            - low_shelf_gain_db: Gain for low frequencies (-12 to 12 dB)
+            - low_shelf_frequency: Corner frequency (20 to 500 Hz)
+            - low_shelf_q_factor: Slope control (0.1 to 1.0)
+
+        Peak Filter Sections (for each peak filter i):
+            - peak_i_gain_db: Gain for the band (-12 to 12 dB)
+            - peak_i_frequency: Center frequency (20 to 20000 Hz)
+            - peak_i_q_factor: Bandwidth control (0.1 to 10.0)
+
+        High Shelf Section:
+            - high_shelf_gain_db: Gain for high frequencies (-12 to 12 dB)
+            - high_shelf_frequency: Corner frequency (5000 to 20000 Hz)
+            - high_shelf_q_factor: Slope control (0.1 to 1.0)
+
+    Note:
+        The processor creates parameters dynamically based on num_peak_filters:
+            - Each peak filter has three parameters (gain, frequency, Q)
+            - Shelf filters add six more parameters (three each)
+            - Total parameter count = 3 * num_peak_filters + 6
+
+    Warning:
+        When using with neural networks:
+            - norm_params must be in range [0, 1]
+            - Parameters will be automatically mapped to their ranges
+            - Ensure your network output is properly normalized (e.g., using sigmoid)
+            - Parameter order must match _register_default_parameters()
+
+    Examples:
+        Basic DSP Usage:
+            >>> # Create a parametric EQ with 3 peak filters
+            >>> eq = ParametricEqualizer(
+            ...     sample_rate=44100,
+            ...     num_peak_filters=3
+            ... )
+            >>> # Process audio with dsp parameters
+            >>> params = {
+            ...     'low_shelf_gain_db': 6.0,
+            ...     'low_shelf_frequency': 100.0,
+            ...     'low_shelf_q_factor': 0.7,
+            ...     'peak_1_gain_db': -3.0,
+            ...     'peak_1_frequency': 1000.0,
+            ...     'peak_1_q_factor': 1.4,
+            ...     # ... additional peak filter parameters ...
+            ...     'high_shelf_gain_db': -2.0,
+            ...     'high_shelf_frequency': 8000.0,
+            ...     'high_shelf_q_factor': 0.7
+            ... }
+            >>> output = eq(input_audio, dsp_params=params)
+
+        Neural Network Control:
+            >>> # 1. Simple parameter prediction
+            >>> class ParametricEQController(nn.Module):
+            ...     def __init__(self, input_size, num_parameters):
+            ...         super().__init__()
+            ...         self.net = nn.Sequential(
+            ...             nn.Linear(input_size, 32),
+            ...             nn.ReLU(),
+            ...             nn.Linear(32, num_parameters),
+            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
+            ...         )
+            ...     
+            ...     def forward(self, x):
+            ...         return self.net(x)
+            >>> 
+            >>> # Initialize controller
+            >>> eq = ParametricEqualizer(num_peak_filters=3)
+            >>> num_params = eq.count_num_parameters()  # 15 parameters for 3 peak filters
+            >>> controller = ParametricEQController(input_size=16, num_parameters=num_params)
+            >>> 
+            >>> # Process with features
+            >>> features = torch.randn(batch_size, 16)  # Audio features
+            >>> norm_params = controller(features)
+            >>> output = eq(input_audio, norm_params=norm_params)
+    """
     def __init__(self, sample_rate, num_peak_filters=3):
         self.num_peak_filters = num_peak_filters
         super().__init__(sample_rate)
@@ -37,6 +151,15 @@ class ParametricEqualizer(ProcessorsBase):
         )
         
     def _register_default_parameters(self):
+        """Register parameters for all filter sections.
+        
+        Sets up parameter ranges for:
+            - Low shelf filter (gain, frequency, Q)
+            - Multiple peak filters (gain, frequency, Q for each)
+            - High shelf filter (gain, frequency, Q)
+            
+        Each parameter is registered with appropriate min/max values for its function.
+        """
         self.params = {
             # Low shelf parameters
             'low_shelf_gain_db': EffectParam(min_val=-12.0, max_val=12.0),
@@ -59,7 +182,30 @@ class ParametricEqualizer(ProcessorsBase):
             })
             
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+        """Process input signal through the parametric equalizer.
         
+        Args:
+            x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
+            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                If provided, norm_params must be None.
+                
+        Returns:
+            torch.Tensor: Processed audio tensor of same shape as input
+            
+        Processing steps:
+            1. Parameter validation and mapping
+            2. Apply low shelf filter
+            3. Apply each peak filter in sequence
+            4. Apply high shelf filter
+            
+        Note:
+            When using norm_params, values are automatically mapped to appropriate ranges.
+            When using dsp_params, parameters should be in their natural units:
+            - gain_db: decibels
+            - frequency: Hz
+            - q_factor: dimensionless
+        """
         check_params(norm_params, dsp_params)
         denorm_params = self.map_parameters(norm_params)
         

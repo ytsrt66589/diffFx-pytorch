@@ -16,14 +16,108 @@ class GraphicEQType(Enum):
     
     
 class GraphicEqualizer(ProcessorsBase):
-    """
-    A differentiable graphic equalizer implementation.
+    """Differentiable implementation of a multi-band graphic equalizer.
+    
+    This processor implements a parallel bank of peak filters to create a graphic equalizer,
+    allowing independent gain control over multiple frequency bands. The implementation 
+    supports different frequency spacing schemes including ISO standard frequencies, 
+    octave spacing, and third-octave spacing.
+
+    The graphic equalizer uses a constant-Q design where each band maintains the same
+    relative bandwidth across frequencies, providing consistent tonal shaping capabilities
+    across the spectrum.
+
+    Processing Chain:
+        1. Input Signal Splitting: Signal is processed through parallel peak filters
+        2. Band Processing: Each frequency band applies gain independently
+        3. Band Summation: Outputs from all bands are summed and normalized
+        4. Output: Final equalized signal
+
+    The equalizer uses second-order IIR peak filters for each band with transfer function:
+
+    .. math::
+
+        H(z) = \\frac{b_0 + b_1z^{-1} + b_2z^{-2}}{1 + a_1z^{-1} + a_2z^{-2}}
+
+    where coefficients are computed based on:
+        - Center frequency of each band
+        - Q factor (bandwidth)
+        - Gain setting for each band
     
     Args:
-        sample_rate (int): Sampling rate in Hz
-        num_bands (int): Number of frequency bands (default: 10)
-        eq_type (str): Type of frequency spacing ('iso', 'octave', 'third_octave')
-        param_smooth (bool): Whether to apply parameter smoothing (default: True)
+        sample_rate (int): Audio sample rate in Hz. Defaults to 44100.
+        num_bands (int): Number of frequency bands. Defaults to 10.
+        q_factors (float): Q factor for band filters. Controls bandwidth. Defaults to 2.0.
+        eq_type (str): Frequency spacing scheme. Must be one of:
+            - 'iso': ISO standard frequencies
+            - 'octave': Octave-spaced bands
+            - 'third_octave': Third-octave spaced bands
+            Defaults to 'iso'.
+
+    Attributes:
+        band_filters (nn.ModuleList): List of peak filters for each band
+        fixed_frequencies (list): Center frequencies for each band
+        band_q (float): Q factor used for all bands
+
+    Parameters Details:
+        band_X_gain_db: Gain for band X (where X is 1 to num_bands)
+            - Controls gain at that frequency band
+            - Positive values boost the frequency
+            - Negative values cut the frequency
+            - Range: -12 dB to +12 dB
+
+    ISO Standard Frequencies:
+        When using 'iso' type, the following center frequencies are used:
+        31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000 Hz
+
+    Note:
+        The processor creates parameters dynamically based on num_bands:
+            - band_1_gain_db through band_N_gain_db where N is num_bands
+            - Each gain parameter ranges from -12 to +12 dB
+
+    Warning:
+        When using with neural networks:
+            - norm_params must be in range [0, 1]
+            - Parameters will be automatically mapped to their dB ranges
+            - Ensure your network output is properly normalized (e.g., using sigmoid)
+            - Parameter order must match _register_default_parameters()
+
+    Examples:
+        Basic DSP Usage:
+            >>> # Create a 10-band graphic EQ with ISO frequencies
+            >>> eq = GraphicEqualizer(
+            ...     sample_rate=44100,
+            ...     num_bands=10,
+            ...     q_factors=2.0,
+            ...     eq_type='iso'
+            ... )
+            >>> # Process audio with dsp parameters
+            >>> params = {f'band_{i+1}_gain_db': 6.0 for i in range(10)}  # Boost all bands by 6dB
+            >>> output = eq(input_audio, dsp_params=params)
+
+        Neural Network Control:
+            >>> # 1. Simple parameter prediction
+            >>> class GraphicEQController(nn.Module):
+            ...     def __init__(self, input_size, num_bands):
+            ...         super().__init__()
+            ...         self.net = nn.Sequential(
+            ...             nn.Linear(input_size, 32),
+            ...             nn.ReLU(),
+            ...             nn.Linear(32, num_bands),
+            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
+            ...         )
+            ...     
+            ...     def forward(self, x):
+            ...         return self.net(x)
+            >>> 
+            >>> # Initialize controller
+            >>> eq = GraphicEqualizer(num_bands=10)
+            >>> controller = GraphicEQController(input_size=16, num_bands=10)
+            >>> 
+            >>> # Process with features
+            >>> features = torch.randn(batch_size, 16)  # Audio features
+            >>> norm_params = controller(features)
+            >>> output = eq(input_audio, norm_params=norm_params)
     """
     def __init__(self, sample_rate=44100, num_bands=10, q_factors=2.0, eq_type='iso'):
         self.num_bands = num_bands
@@ -41,7 +135,19 @@ class GraphicEqualizer(ProcessorsBase):
         ])
 
     def _get_frequencies(self) -> list:
-        """Get frequency bands based on EQ type"""
+        """Get frequency bands based on equalizer type.
+        
+        Computes center frequencies for bands based on the selected EQ type:
+            - ISO: Uses standard ISO center frequencies
+            - Octave: Logarithmically spaced bands, one per octave
+            - Third-octave: Logarithmically spaced bands, three per octave
+            
+        Returns:
+            list: Center frequencies in Hz for each band
+            
+        Raises:
+            ValueError: If eq_type is not recognized
+        """
         if self.eq_type == GraphicEQType.ISO:
             return [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
         elif self.eq_type == GraphicEQType.OCTAVE:
@@ -52,14 +158,34 @@ class GraphicEqualizer(ProcessorsBase):
             raise ValueError(f"Unknown EQ type: {self.eq_type}")
     
     def _register_default_parameters(self):
-        """Register parameters for each band"""
+        """Register gain parameters for each frequency band.
+        
+        Creates a gain parameter for each band with range -12 dB to +12 dB.
+        Parameter names are formatted as 'band_X_gain_db' where X is the band number
+        starting from 1.
+        """
         self.params = {}
         for i in range(self.num_bands):
             self.params[f'band_{i+1}_gain_db'] = EffectParam(min_val=-12.0, max_val=12.0)
     
     def _prepare_band_parameters(self, band_idx: int, params: Dict[str, torch.Tensor], 
                                device: torch.device) -> Dict[str, torch.Tensor]:
-        """Prepare parameters for a single band"""
+        """Prepare filter parameters for a single frequency band.
+        
+        Args:
+            band_idx (int): Index of the band to prepare parameters for
+            params (Dict[str, torch.Tensor]): All EQ parameters
+            device (torch.device): Device to place tensors on
+            
+        Returns:
+            Dict[str, torch.Tensor]: Parameters for the band's peak filter:
+                - gain_db: Gain in dB
+                - frequency: Center frequency in Hz
+                - q_factor: Q factor for bandwidth
+                
+        Note:
+            Expands scalar parameters to match batch size of provided parameters.
+        """
         band_name = f'band_{band_idx+1}'
         freq = torch.tensor(self.fixed_frequencies[band_idx], device=device)
         q = torch.tensor(self.band_q, device=device)
@@ -77,16 +203,25 @@ class GraphicEqualizer(ProcessorsBase):
     
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
-        """
-        Process input signal through the graphic equalizer.
+        """Process input signal through the graphic equalizer.
         
         Args:
-            x (torch.Tensor): Input signal [B x C x T]
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0-1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters
-            
+            x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
+            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                If provided, norm_params must be None.
+                
         Returns:
-            torch.Tensor: Processed signal [B x C x T]
+            torch.Tensor: Processed audio tensor of same shape as input
+            
+        Processing steps:
+            1. Parameter validation and mapping
+            2. Process input through each band's filter in parallel
+            3. Sum and normalize outputs from all bands
+            
+        Note:
+            When using norm_params, values are automatically mapped to dB range.
+            When using dsp_params, gain values should be in dB (-12 to +12).
         """
         check_params(norm_params, dsp_params)
         
@@ -110,65 +245,15 @@ class GraphicEqualizer(ProcessorsBase):
     
     @property
     def frequencies(self) -> list:
-        """Get the list of center frequencies"""
+        """Get the list of center frequencies.
+        
+        Returns:
+            list: Center frequencies in Hz for all bands
+            
+        Note:
+            Frequencies depend on the equalizer type ('iso', 'octave', or 'third_octave')
+            and remain fixed after initialization.
+        """
         return self.fixed_frequencies
     
-
-# Graphic Equalizer 
-# class GraphicEqualizer(ProcessorsBase):
-#     def __init__(self, sample_rate, num_bands=10):
-#         self.num_bands = num_bands
-        
-#         super().__init__(sample_rate)
-        
-#         # Create a list of peaking filters for each band
-#         self.band_filters = [
-#             BiquadFilter(
-#                 sample_rate=self.sample_rate,
-#                 filter_type='PK'  # Peaking filter for each band
-#             ) for _ in range(num_bands)
-#         ]
-        
-#     def _register_default_parameters(self):
-#         # Calculate frequency bands geometrically
-#         start_freq = 31.5  # Starting frequency (common in graphic EQs)
-#         end_freq = 20000   # Ending frequency
-#         frequencies = np.geomspace(start_freq, end_freq, self.num_bands)
-        
-#         self.params = {}
-        
-#         # Create parameters for each band
-#         for i, freq in enumerate(frequencies):
-#             band_name = f'band_{i+1}'
-#             self.params.update({
-#                 f'{band_name}_gain_db': EffectParam(min_val=-12.0, max_val=12.0),
-#                 f'{band_name}_frequency': EffectParam(min_val=freq*0.9, max_val=freq*1.1),
-#                 f'{band_name}_q_factor': EffectParam(min_val=1.0, max_val=4.0),
-#             })
-            
-#     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
-        
-#         check_params(norm_params, dsp_params)
-        
-#         if norm_params is not None:
-#             denorm_params = self.map_parameters(norm_params)
-#         else:
-#             denorm_params = dsp_params
-        
-#         x_processed = x
-#         # Process through each band filter sequentially
-#         for i in range(self.num_bands):
-#             band_name = f'band_{i+1}'
-            
-#             # Get parameters for current band
-#             band_params = {
-#                 'gain_db': denorm_params[f'{band_name}_gain_db'],
-#                 'frequency': denorm_params[f'{band_name}_frequency'],
-#                 'q_factor': denorm_params[f'{band_name}_q_factor']
-#             }
-            
-#             # Apply the band filter
-#             x_processed = self.band_filters[i](x_processed, dsp_params=band_params)
-            
-#         return x_processed
 

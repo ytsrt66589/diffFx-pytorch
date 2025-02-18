@@ -10,15 +10,129 @@ from ..base_utils import check_params
 from ..base import ProcessorsBase, EffectParam
 from ..core.midside import * 
 
-class Widener(ProcessorsBase):
+class StereoWidener(ProcessorsBase):
+    """Differentiable implementation of mid-side stereo width control.
+    
+    This processor implements stereo width adjustment using mid-side (M/S) processing,
+    allowing continuous control from mono to enhanced stereo width. It operates by
+    converting the input to M/S representation, scaling the side signal, and converting
+    back to left-right stereo.
+
+    The width control is implemented using the following process:
+    
+    .. math::
+
+        M_{out} = M_{in} * 2(1 - width)
+        
+        S_{out} = S_{in} * 2(width)
+
+    where:
+        - M is the mid (mono) signal: (L + R) / √2
+        - S is the side (difference) signal: (L - R) / √2
+        - width is the stereo width control parameter
+        - Scaling ensures energy preservation across width settings
+
+    Processing Chain:
+        1. Convert L/R to M/S representation
+        2. Scale mid and side signals based on width
+        3. Convert back to L/R representation
+
+    Args:
+        sample_rate (int): Audio sample rate in Hz
+
+    Parameters Details:
+        width: Stereo width control
+            - 0.0: Mono (side signal removed)
+            - 0.5: Original stereo (no change)
+            - 1.0: Enhanced stereo (doubled side signal)
+            - Continuously variable between these points
+            - Maintains constant total energy
+
+    Note:
+        - Input must be stereo (two channels)
+        - Uses energy-preserving M/S conversion matrices
+        - Width control affects the ratio of mid to side signal
+        - Extreme width settings may cause phase issues
+        - Mono compatibility is maintained across all settings
+
+    Warning:
+        When using with neural networks:
+            - norm_params must be in range [0, 1]
+            - Parameter will be automatically mapped to width range
+            - Ensure your network output is properly normalized (e.g., using sigmoid)
+            - Parameter order must match _register_default_parameters()
+
+    Examples:
+        Basic DSP Usage:
+            >>> # Create a stereo widener
+            >>> widener = StereoWidener(sample_rate=44100)
+            >>> # Process stereo audio with direct width control
+            >>> output = widener(input_audio, dsp_params={
+            ...     'width': 0.75  # Enhance stereo width by 50%
+            ... })
+
+        Neural Network Control:
+            >>> # 1. Simple parameter prediction
+            >>> class WidthController(nn.Module):
+            ...     def __init__(self, input_size):
+            ...         super().__init__()
+            ...         self.net = nn.Sequential(
+            ...             nn.Linear(input_size, 32),
+            ...             nn.ReLU(),
+            ...             nn.Linear(32, 1),
+            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
+            ...         )
+            ...     
+            ...     def forward(self, x):
+            ...         return self.net(x)
+            >>> 
+            >>> # Initialize controller
+            >>> widener = StereoWidener(sample_rate=44100)
+            >>> controller = WidthController(input_size=16)
+            >>> 
+            >>> # Process with features
+            >>> features = torch.randn(batch_size, 16)  # Audio features
+            >>> norm_params = {'width': controller(features)}
+            >>> output = widener(input_audio, norm_params=norm_params)
+    """
     def _register_default_parameters(self):
+        """Register the width parameter.
+        
+        Sets up the width parameter with range:
+            - 0.0: Mono (collapse to center)
+            - 0.5: No change (original stereo)
+            - 1.0: Enhanced stereo (maximum width)
+        """
         # 0.0 -> mono 0.5 -> no change 1.0 -> stereo
         self.params = {
             'width': EffectParam(min_val=0.0, max_val=1.0),
         } 
     
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+        """Process input signal through the stereo widener.
         
+        Args:
+            x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
+            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                If provided, norm_params must be None.
+                
+        Returns:
+            torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
+            
+        Processing steps:
+            1. Parameter validation and mapping
+            2. Convert stereo input to M/S representation
+            3. Scale mid and side signals based on width parameter
+            4. Convert back to L/R stereo representation
+            
+        Raises:
+            AssertionError: If input is not stereo (two channels)
+            
+        Note:
+            Uses energy-preserving M/S matrices for conversion
+            Mid signal scaling ensures constant total energy
+        """
         check_params(norm_params, dsp_params)
         
         # get parameters 
