@@ -19,6 +19,11 @@ from ..core.phase import unwrap_phase
 class BasicDelay(ProcessorsBase):
     """Differentiable implementation of a single-tap delay line.
     
+    The implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    
     This processor implements a basic digital delay line using frequency-domain processing
     for precise, artifact-free time delays. It creates a single echo of the input signal
     with controllable delay time and mix level.
@@ -55,7 +60,6 @@ class BasicDelay(ProcessorsBase):
         - Uses FFT-based delay for precise time shifting
         - Phase unwrapping prevents discontinuities in delay
         - Automatic padding handles all delay times
-        - More efficient than time-domain implementation for longer delays
 
     Examples:
         Basic DSP Usage:
@@ -106,23 +110,22 @@ class BasicDelay(ProcessorsBase):
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain the following keys:
+                - 'delay_time': Delay time in seconds (0 to 1)
+                - 'feedback': Amount of delayed signal fed back (0 to 1)
+                - 'mix': Wet/dry balance (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify delay parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Zero-pad input for delay buffer
-            3. Convert to frequency domain
-            4. Calculate and apply phase shift
-            5. Convert back to time domain
-            6. Mix delayed signal with original
-            
-        Note:
-            Delay is implemented in frequency domain for efficiency and precision.
-            Phase unwrapping ensures continuous delay response.
         """
         # Set proper configuration
         check_params(norm_params, dsp_params)
@@ -160,11 +163,16 @@ class BasicDelay(ProcessorsBase):
 class BasicFeedbackDelay(ProcessorsBase):
     """Differentiable implementation of a feedback delay line.
     
+    The implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    
     This processor implements a delay line with feedback and feedforward paths, creating
     multiple decaying echoes. The implementation uses frequency-domain processing and 
     a feedback-feedforward structure for flexible echo patterns.
 
-    The transfer function of the system is:
+    The transfer function of the system is from [1]:
 
     .. math::
 
@@ -209,19 +217,7 @@ class BasicFeedbackDelay(ProcessorsBase):
             - Controls level of direct delayed signal
             - Shapes initial echo response
             - Independent of feedback path
-
-    Note:
-        - Feedback gain is clamped to ensure system stability
-        - Uses frequency domain for efficient processing
-        - Epsilon added to denominator to prevent division by zero
-        - Multiple echoes decay exponentially with feedback
-        - Combined feedforward/feedback structure allows flexible echo patterns
-
-    Warning:
-        - High feedback gains (>0.9) can create very long decay times
-        - Monitor output levels when using high feedback values
-        - Feedback near ±1.0 can cause self-oscillation
-
+    
     Examples:
         Basic DSP Usage:
             >>> # Create a feedback delay
@@ -273,29 +269,27 @@ class BasicFeedbackDelay(ProcessorsBase):
     
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the feedback delay line.
-        
+
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain the following keys:
+                - 'delay_time': Base delay time in seconds (0 to 1)
+                - 'feedback': Amount of signal fed back through delay line (0 to 1)
+                - 'diffusion': Controls spread of feedback paths (0 to 1)
+                - 'mix': Wet/dry balance (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify feedback delay parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Zero-pad input for delay buffer
-            3. Convert to frequency domain
-            4. Calculate transfer function H(z)
-            5. Apply transfer function
-            6. Convert back to time domain
-            7. Mix processed signal with original
-            
-        Note:
-            Implementation uses frequency domain transfer function
-            for efficient computation of feedback structure.
-            Feedback gain is clamped to ensure stability.
         """
         # Set proper configuration
         check_params(norm_params, dsp_params)
@@ -333,6 +327,11 @@ class BasicFeedbackDelay(ProcessorsBase):
 # Identical to the basic delay but the delay_ms is much shorter 
 class SlapbackDelay(BasicDelay):
     """Differentiable implementation of a slapback delay effect.
+    
+    The implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
     
     This processor extends BasicDelay to create a specialized short delay effect
     that emulates the distinctive "doubling" sound popularized in 1950s recordings.

@@ -20,3 +20,18 @@ def check_params(norm_params, dsp_params) -> None:
     if norm_params is not None and dsp_params is not None:
         raise ValueError("Cannot provide both norm_params and dsp_params simultaneously")
 
+def create_dsp_params_batch(params_dict: Dict[str, float], batch_size: int, device: str = 'cpu') -> Dict[str, torch.Tensor]:
+    """Convert scalar DSP parameters to batched tensor parameters.
+    
+    Args:
+        params_dict: Dictionary of parameter names and their scalar values
+        batch_size: Number of copies to create in batch
+        device: Target device for tensors
+        
+    Returns:
+        Dictionary of parameter names and their batched tensor values
+    """
+    return {
+        key: torch.full((batch_size,), value, device=device)
+        for key, value in params_dict.items()
+    }

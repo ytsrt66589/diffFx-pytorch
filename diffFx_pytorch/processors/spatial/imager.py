@@ -184,18 +184,25 @@ class StereoImager(ProcessorsBase):
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain the following keys:
+                - 'low_width': Width control for low band (0 to 1)
+                - 'mid_width': Width control for mid band (0 to 1)
+                - 'high_width': Width control for high band (0 to 1)
+                - 'low_crossover': Frequency between low/mid bands (0 to 1)
+                - 'high_crossover': Frequency between mid/high bands (0 to 1)
+                - 'mix': Wet/dry balance (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify imager parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
-            
-        Processing steps:
-            1. Convert to M/S representation
-            2. Split into frequency bands using crossovers
-            3. Apply width processing to each band
-            4. Sum processed bands
-            5. Convert back to L/R representation
             
         Raises:
             AssertionError: If input is not stereo (two channels)

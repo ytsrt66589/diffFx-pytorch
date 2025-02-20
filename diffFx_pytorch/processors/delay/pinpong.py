@@ -11,6 +11,11 @@ from ..core.phase import unwrap_phase
 class PingPongDelay(ProcessorsBase):
     """Differentiable implementation of a stereo ping-pong delay effect.
     
+    The implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+            
     This processor implements a stereo delay effect where echoes alternate between
     left and right channels, creating a "ping-pong" spatial pattern. The implementation
     uses a cross-coupled feedback structure in the frequency domain for precise timing
@@ -64,19 +69,7 @@ class PingPongDelay(ProcessorsBase):
             - Range: 0.0 to 1.0
             - 0.0: Only original signal
             - 1.0: Only processed signal
-
-    Note:
-        - Requires stereo input signal
-        - Creates alternating spatial echoes
-        - Independent feedback control per channel
-        - Frequency domain implementation for precision
-        - Combined feedback must be < 1 for stability
-
-    Warning:
-        - High combined feedback (b1*b2 near 1) can cause long decay
-        - Input must be stereo (2 channels)
-        - Monitor output levels with high feedback values
-
+    
     Examples:
         Basic DSP Usage:
             >>> # Create a ping-pong delay
@@ -132,26 +125,26 @@ class PingPongDelay(ProcessorsBase):
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain the following keys:
+                - 'delay_time': Base delay time in seconds (0 to 1)
+                - 'feedback': Amount of cross-coupled feedback (0 to 1)
+                - 'stereo_width': Controls stereo spread (0 to 1)
+                - 'mix': Wet/dry balance (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify ping-pong parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
-            torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
-            
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Zero-pad input for delay buffer
-            3. Convert to frequency domain
-            4. Calculate and apply cross-coupled transfer functions
-            5. Convert back to time domain
-            6. Mix processed signal with original
+            torch.Tensor: Processed stereo audio tensor of same shape as input. Shape: (batch, 2, samples)
             
         Raises:
             AssertionError: If input is not stereo (2 channels)
-            
-        Note:
-            Implementation uses frequency domain transfer functions
-            for efficient computation of cross-coupled feedback structure.
         """
         # Set proper configuration
         check_params(norm_params, dsp_params)

@@ -23,6 +23,10 @@ class Compressor(ProcessorsBase):
             Journal of the Audio Engineering Society 60.6 (2012): 399-408.
     ..  [2] Lee, Sungho, et al. "GRAFX: an open-source library for audio processing graphs in PyTorch." 
             arXiv preprint arXiv:2408.03204 (2024).
+    ..  [3] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [4] Yu, Chin-Yun, et al. "Differentiable all-pole filters for time-varying audio systems." 
+            arXiv preprint arXiv:2404.07970 (2024).
     
     Processing Chain:
         1. Level Detection: Compute RMS energy and convert to dB
@@ -261,7 +265,7 @@ class Compressor(ProcessorsBase):
                      ratio: torch.Tensor, knee_db: torch.Tensor) -> torch.Tensor:
         """Compute compression gain based on knee type.
     
-        Implementation based on [1] with different knee characteristics.
+        Implementation based on [1], [2] with different knee characteristics.
 
         Args:
             level_db (torch.Tensor): Input level in dB. Shape: (batch, time)
@@ -318,7 +322,6 @@ class Compressor(ProcessorsBase):
         return gain_db
     
 # MultiBand Compressor 
-# ref: https://www.mathworks.com/help/audio/ug/multiband-dynamic-range-compression.html
 class MultiBandCompressor(ProcessorsBase):
     """Differentiable multi-band dynamic range compressor.
     
@@ -789,9 +792,8 @@ class Limiter(Compressor):
     ..  [1] Giannoulis, D., Massberg, M., & Reiss, J. D. (2012).
             "Digital dynamic range compressor design—A tutorial and analysis."
             Journal of the Audio Engineering Society, 60(6), 399-408.
-    ..  [2] Maddams, J. A., Finn, S., & Reiss, J. D. (2012).
-            "An autonomous method for multi-track dynamic range compression."
-            Paper presented at the 15th International Conference on Digital Audio Effects.
+    ..  [2] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
     
     Processing Chain:
         1. Level Detection: Compute RMS energy and convert to dB

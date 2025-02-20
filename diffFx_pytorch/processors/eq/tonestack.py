@@ -398,28 +398,25 @@ class Tonestack(ProcessorsBase):
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """Process input signal through the tonestack.
         
-        Applies the tonestack equalization to the input audio using either normalized
-        parameters from a neural network or direct DSP parameters.
-        
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1).
-                Must contain 'bass', 'mid', and 'treble' keys.
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+                Must contain the following keys:
+                - 'bass': Low frequency control (0 to 1)
+                - 'mid': Mid frequency control (0 to 1)
+                - 'treble': High frequency control (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify tone controls as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
-        Note:
-            When using norm_params, values are automatically mapped to their ranges.
-            When using dsp_params, values should be in their natural units (0-1).
-            
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Extract control values (treble, mid, bass)
-            3. Calculate filter coefficients
-            4. Apply IIR filter to input signal
         """
         check_params(norm_params, dsp_params)
         

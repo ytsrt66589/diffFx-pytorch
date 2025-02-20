@@ -18,6 +18,11 @@ class GraphicEQType(Enum):
 class GraphicEqualizer(ProcessorsBase):
     """Differentiable implementation of a multi-band graphic equalizer.
     
+    Implementation is based on the following book: 
+
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    
     This processor implements a parallel bank of peak filters to create a graphic equalizer,
     allowing independent gain control over multiple frequency bands. The implementation 
     supports different frequency spacing schemes including ISO standard frequencies, 
@@ -47,7 +52,7 @@ class GraphicEqualizer(ProcessorsBase):
     Args:
         sample_rate (int): Audio sample rate in Hz. Defaults to 44100.
         num_bands (int): Number of frequency bands. Defaults to 10.
-        q_factors (float): Q factor for band filters. Controls bandwidth. Defaults to 2.0.
+        q_factors (float): Q factor for band filters. Controls bandwidth. Defaults to None.
         eq_type (str): Frequency spacing scheme. Must be one of:
             - 'iso': ISO standard frequencies
             - 'octave': Octave-spaced bands
@@ -62,18 +67,11 @@ class GraphicEqualizer(ProcessorsBase):
     Parameters Details:
         band_X_gain_db: Gain for band X (where X is 1 to num_bands)
             - Controls gain at that frequency band
-            - Positive values boost the frequency
-            - Negative values cut the frequency
             - Range: -12 dB to +12 dB
 
     ISO Standard Frequencies:
         When using 'iso' type, the following center frequencies are used:
         31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000 Hz
-
-    Note:
-        The processor creates parameters dynamically based on num_bands:
-            - band_1_gain_db through band_N_gain_db where N is num_bands
-            - Each gain parameter ranges from -12 to +12 dB
 
     Warning:
         When using with neural networks:
@@ -119,11 +117,21 @@ class GraphicEqualizer(ProcessorsBase):
             >>> norm_params = controller(features)
             >>> output = eq(input_audio, norm_params=norm_params)
     """
-    def __init__(self, sample_rate=44100, num_bands=10, q_factors=2.0, eq_type='iso'):
+    def __init__(self, sample_rate=44100, num_bands=10, q_factors=None, eq_type='iso'):
         self.num_bands = num_bands
         super().__init__(sample_rate)
         self.eq_type = GraphicEQType(eq_type)
-        self.band_q = q_factors  # Constant Q design
+        
+        if eq_type == 'octave':
+            self.R = 2 
+        elif eq_type == 'third-octave':
+            self.R = 2**(1/3)
+        
+        
+        if q_factors is None:
+            self.band_q = np.sqrt(self.R)/(self.R-1)
+        else:
+            self.band_q = q_factors  # Constant Q design
         
         # Initialize filters
         self.fixed_frequencies = self._get_frequencies()
@@ -204,24 +212,23 @@ class GraphicEqualizer(ProcessorsBase):
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """Process input signal through the graphic equalizer.
-        
+
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain keys 'band_X_gain_db' for X in range(1, num_bands+1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify band gains as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Process input through each band's filter in parallel
-            3. Sum and normalize outputs from all bands
-            
-        Note:
-            When using norm_params, values are automatically mapped to dB range.
-            When using dsp_params, gain values should be in dB (-12 to +12).
         """
         check_params(norm_params, dsp_params)
         

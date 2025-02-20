@@ -68,8 +68,10 @@ output = mb_comp(input_audio, norm_params=norm_params)
 ```
 
 ## Features
-
-### Implemented Effects ✓🚀
+### Implemented Effects 🎛️ 
+- **Linear Gain**
+  - [x] Gain 
+  - [] Fade in/out
 - **EQ**
   - [x] ToneStack
   - [x] Graphic Equalizer
@@ -80,14 +82,14 @@ output = mb_comp(input_audio, norm_params=norm_params)
   - [x] Multi-band Compressor
   - [x] Limiter
   - [x] Multi-band Limiter
-  - [] Expander
-  - [] Multi-band Expander
-  - [] Noise Gate
-  - [] Multi-band Noise Gate
-  - [] Transient Shaper 
+  - [-] Expander
+  - [-] Multi-band Expander
+  - [-] Noise Gate
+  - [-] Multi-band Noise Gate
+  - [x] Transient Shaper (how to support stereo?)
   - [] Multi-band Transient Shaper
 - **Delay**
-  - [x] Basic Delay
+  - [x] Basic Delay 
   - [x] Feedback Basic Delay
   - [x] Slapback Delay
   - [x] Ping-pong Delay
@@ -98,13 +100,13 @@ output = mb_comp(input_audio, norm_params=norm_params)
   - [x] Stereo Imager
   - [x] Stereo Enhancer (Haas Effect)
 - **Modulation**
-  - [] Chorus
-  - [] Multi-voice Chorus
-  - [] Stereo Chorus
-  - [] Flanger
-  - [] Feedback Flanger
-  - [] Stereo Flanger 
-  - [] Phaser 
+  - [x] Chorus
+  - [x] Multi-voice Chorus
+  - [x] Stereo Chorus
+  - [x] Flanger
+  - [x] Feedback Flanger
+  - [x] Stereo Flanger 
+  - [x] Phaser 
   - [] AutoWah 
   - [] Tremelo 
   - [] Ring Modulation
@@ -113,10 +115,11 @@ output = mb_comp(input_audio, norm_params=norm_params)
   - [] Noise Shape Reverb
   - [] Feedback Delay Network (FDN)
 - **Distortion (Nonlinear)**
-  - [] TanH
-  - [] Hard/Soft/Double Soft Clipper
-  - [] Bit Crusher 
+  - [x] TanH
+  - [x] Hard/Soft/Double-Soft/Cubic/ArcTanh/Rectifier/Exponential Clipper
+  - [x] Bit Crusher 
   - [] Exciter 
+
 
 ## Contributing
 
@@ -137,4 +140,4 @@ If you use diffFx-pytorch in your research, please cite:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License - see the [LICENSE](LICENSE) file for details.

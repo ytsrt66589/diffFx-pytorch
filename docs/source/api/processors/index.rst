@@ -4,8 +4,12 @@ Processors
 .. toctree::
    :maxdepth: 2
 
-   filters
-   delay
-   dynamics
+   gain
    eq
    spatial
+   filters
+   delay
+   distortion
+   dynamics
+   modulation
+   

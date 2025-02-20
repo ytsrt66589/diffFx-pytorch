@@ -128,23 +128,26 @@ class StereoEnhancer(ProcessorsBase):
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain the following keys:
+                - 'side_delay': Delay time for side signal (0 to 1)
+                - 'width': Stereo width enhancement (0 to 1)
+                - 'high_pass': High-pass filter cutoff (0 to 1)
+                - 'mix': Wet/dry balance (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify enhancer parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
             
-        Processing steps:
-            1. Convert to M/S representation
-            2. Apply frequency-domain delay to side signal
-            3. Scale delayed side signal by width parameter
-            4. Convert back to L/R representation
-            
         Raises:
             AssertionError: If input is not stereo (two channels)
-            
-        Note:
-            Uses FFT-based delay for precise time shifting without artifacts
         """
         check_params(norm_params, dsp_params)
         

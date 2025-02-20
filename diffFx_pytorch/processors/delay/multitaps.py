@@ -11,6 +11,11 @@ from ..core.phase import unwrap_phase
 class MultiTapsDelay(ProcessorsBase):
     """Differentiable implementation of a multi-tap delay effect.
     
+    The implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    
     This processor implements a parallel delay structure with multiple taps, where each tap
     represents an independent echo with its own delay time and gain. The implementation uses
     frequency-domain processing for precise timing control and efficient computation.
@@ -47,14 +52,7 @@ class MultiTapsDelay(ProcessorsBase):
             - Range: 0.0 to 1.0
             - 0.0: Only original signal
             - 1.0: Only processed signal
-
-    Note:
-        - Total parameters = 2 * num_taps + 1
-        - Each tap processes input independently
-        - Supports complex rhythmic patterns
-        - Frequency domain implementation for precision
-        - Automatic padding handles all delay times
-
+    
     Examples:
         Basic DSP Usage:
             >>> # Create a 4-tap delay
@@ -117,26 +115,24 @@ class MultiTapsDelay(ProcessorsBase):
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain the following keys:
+                - 'base_time': Base delay time for first tap (0 to 1)
+                - 'time_mult': Multiplier between successive taps (0 to 1)
+                - 'decay': Amplitude decay rate across taps (0 to 1)
+                - 'spread': Stereo spread between taps (0 to 1)
+                - 'mix': Wet/dry balance (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify multi-tap parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Zero-pad input for maximum delay
-            3. Convert to frequency domain
-            4. For each tap:
-                - Calculate phase shift
-                - Apply gain and delay
-            5. Sum all tap outputs
-            6. Convert back to time domain
-            7. Mix with original signal
-            
-        Note:
-            Uses parallel processing of taps in frequency domain
-            for computational efficiency.
         """
         check_params(norm_params, dsp_params)
         if norm_params is not None:

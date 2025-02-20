@@ -114,24 +114,27 @@ class StereoWidener(ProcessorsBase):
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain the following keys:
+                - 'width': Stereo width control (0 to 1)
+                    0.0: Mono/centered
+                    0.5: Original stereo width
+                    1.0: Maximum width
+                - 'balance': L/R balance adjustment (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify widener parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
             
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Convert stereo input to M/S representation
-            3. Scale mid and side signals based on width parameter
-            4. Convert back to L/R stereo representation
-            
         Raises:
             AssertionError: If input is not stereo (two channels)
-            
-        Note:
-            Uses energy-preserving M/S matrices for conversion
-            Mid signal scaling ensures constant total energy
         """
         check_params(norm_params, dsp_params)
         

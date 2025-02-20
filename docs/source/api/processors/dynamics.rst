@@ -44,3 +44,14 @@ Multi-band Limiter
    :show-inheritance:
 
    A multi-band limiter that applies independent limiting to different frequency bands.
+
+
+Transient Shaper
+---------------
+
+.. autoclass:: diffFx_pytorch.processors.dynamics.TransientShaper
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+   A transient shaper that can alter the transient characteristics

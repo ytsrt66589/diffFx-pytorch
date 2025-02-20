@@ -68,3 +68,48 @@ def ms_to_z_alpha(time_ms: torch.Tensor, sample_rate) -> torch.Tensor:
     z_alpha = torch.log(desired_alpha) - torch.log(1 - desired_alpha)
     
     return z_alpha
+
+
+
+def variable_delay(phase: torch.Tensor, audio: torch.Tensor, buf_size: int) -> torch.Tensor:
+    """Variable delay implementation using grid_sample
+
+    Args:
+        phase (torch.Tensor): normalized delay time (0~1) (batch, channel, n_samples)
+        audio (torch.Tensor): input audio (batch, channel, n_samples)
+        buf_size (int): maximum delay buffer size in samples
+
+    Returns:
+        torch.Tensor: delayed audio (batch, channel, n_samples)
+    """
+    batch_size, n_ch, n_samples = audio.shape
+    
+    # Reshape audio for grid_sample: (batch*channel, 1, 1, n_samples)
+    audio_4d = audio.reshape(batch_size * n_ch, 1, 1, n_samples)
+    
+    # Calculate delay grid
+    delay_ratio = buf_size * 2 / n_samples
+    grid_x = torch.linspace(-1, 1, n_samples, device=audio.device)
+    
+    # Expand grid for batch and channel dimensions
+    grid_x = grid_x.expand(batch_size, n_ch, n_samples)
+    grid_x = grid_x - delay_ratio + delay_ratio * phase  # Apply phase modulation
+    
+    # Reshape for grid_sample: (batch*channel, 1, n_samples, 2)
+    grid_x = grid_x.reshape(batch_size * n_ch, 1, n_samples, 1)
+    grid_y = torch.zeros_like(grid_x)
+    grid = torch.cat([grid_x, grid_y], dim=-1)
+    
+    # Apply delay using grid_sample
+    output = torch.nn.functional.grid_sample(
+        audio_4d, 
+        grid,
+        align_corners=True,
+        mode='bilinear',
+        padding_mode='zeros'
+    )
+    
+    # Reshape back to original dimensions
+    return output.squeeze(2).squeeze(1).reshape(batch_size, n_ch, n_samples)
+
+

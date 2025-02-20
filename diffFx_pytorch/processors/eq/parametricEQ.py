@@ -15,6 +15,13 @@ from ..filters import BiquadFilter
 class ParametricEqualizer(ProcessorsBase):
     """Differentiable implementation of a parametric equalizer.
     
+    Implementation is based on following book and papers: 
+
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [2] Lee, Sungho, et al. "GRAFX: an open-source library for audio processing graphs in PyTorch." 
+            arXiv preprint arXiv:2408.03204 (2024).
+            
     This processor implements a versatile parametric equalizer combining multiple peak filters
     with high and low shelf filters. Each filter section provides independent control over
     gain, frequency, and bandwidth (Q factor), offering precise frequency response shaping
@@ -66,12 +73,6 @@ class ParametricEqualizer(ProcessorsBase):
             - high_shelf_gain_db: Gain for high frequencies (-12 to 12 dB)
             - high_shelf_frequency: Corner frequency (5000 to 20000 Hz)
             - high_shelf_q_factor: Slope control (0.1 to 1.0)
-
-    Note:
-        The processor creates parameters dynamically based on num_peak_filters:
-            - Each peak filter has three parameters (gain, frequency, Q)
-            - Shelf filters add six more parameters (three each)
-            - Total parameter count = 3 * num_peak_filters + 6
 
     Warning:
         When using with neural networks:
@@ -183,33 +184,29 @@ class ParametricEqualizer(ProcessorsBase):
             
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the parametric equalizer.
-        
+
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain keys for each filter section:
+                - 'low_shelf_gain_db', 'low_shelf_freq'
+                - 'peak_X_gain_db', 'peak_X_freq', 'peak_X_q' for X in range(1, num_peaks+1)
+                - 'high_shelf_gain_db', 'high_shelf_freq'
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Apply low shelf filter
-            3. Apply each peak filter in sequence
-            4. Apply high shelf filter
-            
-        Note:
-            When using norm_params, values are automatically mapped to appropriate ranges.
-            When using dsp_params, parameters should be in their natural units:
-            - gain_db: decibels
-            - frequency: Hz
-            - q_factor: dimensionless
         """
         check_params(norm_params, dsp_params)
-        denorm_params = self.map_parameters(norm_params)
         
-        # print('norm_params: ', norm_params)
         if norm_params is not None:
             denorm_params = self.map_parameters(norm_params)
             low_shelf_params = {
@@ -249,17 +246,17 @@ class ParametricEqualizer(ProcessorsBase):
             for i in range(self.num_peak_filters):
                 peak_name = f'peak_{i+1}'
                 peak_params = {
-                    'gain_db': params[f'{peak_name}_gain_db'],
-                    'frequency': params[f'{peak_name}_frequency'],
-                    'q_factor': params[f'{peak_name}_q_factor']
+                    'gain_db': dsp_params[f'{peak_name}_gain_db'],
+                    'frequency': dsp_params[f'{peak_name}_frequency'],
+                    'q_factor': dsp_params[f'{peak_name}_q_factor']
                 }
                 x_processed = self.peak_filters[i](x_processed, None, peak_params)
             
             # Apply high shelf filter
             high_shelf_params = {
-                'gain_db': norm_params['high_shelf_gain_db'],
-                'frequency': norm_params['high_shelf_frequency'],
-                'q_factor': norm_params['high_shelf_q_factor']
+                'gain_db': dsp_params['high_shelf_gain_db'],
+                'frequency': dsp_params['high_shelf_frequency'],
+                'q_factor': dsp_params['high_shelf_q_factor']
             }
             x_processed = self.high_shelf_filter(x_processed, None, high_shelf_params)
         

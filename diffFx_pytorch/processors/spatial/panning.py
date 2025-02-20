@@ -107,25 +107,24 @@ class StereoPanning(ProcessorsBase):
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 1, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Must contain the following keys:
+                - 'pan': Stereo position from left to right (0 to 1)
+                - 'width': Stereo width/spread control (0 to 1)
+                Each value should be a tensor of shape (batch_size,)
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify panner parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
             
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Convert pan position to angle
-            3. Compute gain coefficients using constant-power law
-            4. Duplicate mono input to stereo
-            5. Apply panning gains
-            
         Raises:
             AssertionError: If input is not mono (single channel)
-            
-        Note:
-            Uses constant-power panning law to maintain consistent loudness
-            across the stereo field while ensuring mono compatibility.
         """
         check_params(norm_params, dsp_params)
         
