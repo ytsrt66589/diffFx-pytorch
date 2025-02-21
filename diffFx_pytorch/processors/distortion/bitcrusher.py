@@ -19,7 +19,7 @@ class BitCrusher(ProcessorsBase):
 
     .. math::
 
-    y = round(x * 2^{bits}) / 2^{bits}
+        y = round(x * 2^{bits}) / 2^{bits}
 
     where:
     - x is the input signal (assumed to be in [-1, 1] range)

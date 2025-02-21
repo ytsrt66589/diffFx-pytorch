@@ -11,10 +11,15 @@ import math
 class Chorus(ProcessorsBase):
     """Differentiable implementation of a chorus audio effect.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [2] https://github.com/hyakuchiki/diffsynth/blob/master/diffsynth/modules/delay.py
+    
     This processor implements a modulated delay line to create the chorus effect,
     generating multiple detuned copies of the input signal using LFO-controlled
-    delay modulation. The implementation uses frequency-domain processing for 
-    precise, artifact-free time delays.
+    delay modulation. 
 
     Processing Chain:
         1. Generate LFO for delay modulation
@@ -60,14 +65,6 @@ class Chorus(ProcessorsBase):
             - Range: 0.0 to 1.0
             - 0.0: Only clean signal
             - 1.0: Only chorused signal
-
-    Note:
-        The processor supports the following features:
-            - Frequency-domain delay implementation
-            - Smooth LFO modulation
-            - Phase-coherent processing
-            - Automatic buffer size handling
-            - Efficient batch processing
 
     Warning:
         When using with neural networks:
@@ -205,6 +202,11 @@ class Chorus(ProcessorsBase):
 class MultiVoiceChorus(ProcessorsBase):
     """Differentiable implementation of a multi-voice chorus effect with independent voice control.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    
     This processor implements a chorus effect with multiple independently controlled voices,
     each featuring phase-shifted modulation and individual gain control. The implementation 
     uses multiple LFO-modulated delay lines with evenly distributed phase offsets to create
@@ -405,7 +407,12 @@ class MultiVoiceChorus(ProcessorsBase):
     
 class StereoChorus(ProcessorsBase):
     """Differentiable implementation of a stereo chorus effect with configurable voices.
-
+    
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    
     This processor implements a stereo chorus effect with multiple independently controlled voices,
     each featuring phase-shifted modulation, individual gain control, and stereo panning. The
     implementation combines multi-voice modulated delays with constant-power stereo positioning
@@ -422,11 +429,11 @@ class StereoChorus(ProcessorsBase):
 
     .. math::
 
-    y_L(t) = mix * \\sum_{i=0}^{N-1} g_i\\sqrt{\\frac{1-pan_i}{2}}x(t - d_i(t))
+        y_L(t) = mix * \\sum_{i=0}^{N-1} g_i\\sqrt{\\frac{1-pan_i}{2}}x(t - d_i(t))
     
-    y_R(t) = mix * \\sum_{i=0}^{N-1} g_i\\sqrt{\\frac{1+pan_i}{2}}x(t - d_i(t))
+        y_R(t) = mix * \\sum_{i=0}^{N-1} g_i\\sqrt{\\frac{1+pan_i}{2}}x(t - d_i(t))
     
-    d_i(t) = depth * sin(2πf_rt + \\frac{πi}{2}) + delay_{base}
+        d_i(t) = depth * sin(2πf_rt + \\frac{πi}{2}) + delay_{base}
 
     where coefficients are functions of:
     - N: Number of chorus voices

@@ -19,6 +19,11 @@ from typing import Dict, Union
 class Flanger(ProcessorsBase):
     """Differentiable implementation of a flanger audio effect.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    
     This processor implements a modulated delay line to create the flanger effect,
     using a low-frequency oscillator (LFO) to modulate a very short delay time. 
     The implementation creates the characteristic "swooshing" sound through 
@@ -217,6 +222,11 @@ class Flanger(ProcessorsBase):
 class StereoFlanger(ProcessorsBase):
     """Differentiable implementation of a stereo flanger effect with quadrature LFOs.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+        
     This processor implements a stereo flanger that uses quadrature (90° phase-shifted) 
     LFOs for the left and right channels, creating a wide stereo image through 
     independent modulation. The implementation provides smooth phase differences 
@@ -232,13 +242,13 @@ class StereoFlanger(ProcessorsBase):
 
     .. math::
 
-    y_L(t) = mix * x_L(t - d_L(t)) + (1 - mix) * x_L(t)
+        y_L(t) = mix * x_L(t - d_L(t)) + (1 - mix) * x_L(t)
     
-    y_R(t) = mix * x_R(t - d_R(t)) + (1 - mix) * x_R(t)
+        y_R(t) = mix * x_R(t - d_R(t)) + (1 - mix) * x_R(t)
     
-    d_L(t) = depth * sin(2πf_rt) + delay_{base}
+        d_L(t) = depth * sin(2πf_rt) + delay_{base}
     
-    d_R(t) = depth * sin(2πf_rt + π/2) + delay_{base}
+        d_R(t) = depth * sin(2πf_rt + π/2) + delay_{base}
 
     where coefficients are functions of:
     - x_L, x_R: Left and right input signals
@@ -428,6 +438,11 @@ class StereoFlanger(ProcessorsBase):
 class FeedbackFlanger(ProcessorsBase):
     """Differentiable implementation of a feedback flanger effect.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    
     This processor implements a flanger with feedback path, allowing the delayed signal
     to be fed back into the input. The feedback creates resonant peaks in the frequency
     response, resulting in a more pronounced and characteristically "metallic" flanger sound.
@@ -443,9 +458,9 @@ class FeedbackFlanger(ProcessorsBase):
 
     .. math::
 
-    y(t) = mix * (x(t) + fb * y(t - d(t))) + (1 - mix) * x(t)
+        y(t) = mix * (x(t) + fb * y(t - d(t))) + (1 - mix) * x(t)
     
-    d(t) = depth * sin(2πf_rt) + delay_{base}
+        d(t) = depth * sin(2πf_rt) + delay_{base}
 
     where coefficients are functions of:
     - x(t): Input signal

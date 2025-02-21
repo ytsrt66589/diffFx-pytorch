@@ -478,6 +478,11 @@ class HardDist(BaseDistortion):
 class DoubleSoftDist(BaseDistortion):
     """Differentiable implementation of double soft-clipping distortion with asymmetric controls.
 
+    Implementation is based on:
+
+    ..  [4] https://jatinchowdhury18.medium.com/complex-nonlinearities-episode-1-double-soft-clipper-5ce826fa82d6
+    
+    
     This processor implements a sophisticated dual-stage soft-clipping distortion with independent
     control over positive and negative waveform shaping. It provides precise control over clipping
     characteristics, allowing creation of asymmetric distortion with variable slopes and limits.

@@ -43,6 +43,13 @@ def fourth_order_ap_coeffs(p):
 class Phaser(ProcessorsBase):
     """Differentiable implementation of a high-order allpass phaser effect.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [2] Yu, Chin-Yun, et al. "Differentiable all-pole filters for time-varying audio systems." 
+            arXiv preprint arXiv:2404.07970 (2024).
+    
     This processor implements a sophisticated phaser effect using allpass filters 
     with time-varying coefficients, creating complex phase-shifting modulations 
     in the audio signal. The implementation provides precise control over the 

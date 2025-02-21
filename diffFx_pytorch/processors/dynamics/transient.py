@@ -238,3 +238,7 @@ class TransientShaper(ProcessorsBase):
         
         
         return y * x_peak 
+
+
+
+
