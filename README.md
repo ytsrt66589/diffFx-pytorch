@@ -2,6 +2,8 @@
 
 A PyTorch-based library for differentiable audio effects processing, enabling deep learning integration with professional audio processing algorithms.
 
+Disclaimer: Current code is not fully test yet, be careful to use !!!!!!!!!!! 
+
 ## Overview
 
 diffFx-pytorch provides a collection of differentiable audio effects processors that can be seamlessly integrated into neural network architectures. The library implements common audio processing algorithms with PyTorch, making them end-to-end differentiable while maintaining professional audio quality.
@@ -11,6 +13,14 @@ diffFx-pytorch provides a collection of differentiable audio effects processors 
 
 ```bash
 pip install diffFx-pytorch
+```
+
+or 
+
+```bash
+git clone https://github.com/ytsrt66589/diffFx-pytorch.git
+cd diffFx-pytorch
+pip install -e .
 ```
 
 ## Quick Start
@@ -132,9 +142,9 @@ If you use diffFx-pytorch in your research, please cite:
 ```bibtex
 @software{difffx_pytorch,
   title = {diffFx-pytorch: Differentiable Audio Effects Processing in PyTorch},
-  author = {Your Name},
+  author = {Yen-Tung Yeh},
   year = {2024},
-  url = {https://github.com/yourusername/difffx-pytorch}
+  url = {https://github.com/ytsrt66589/difffx-pytorch}
 }
 ```
 

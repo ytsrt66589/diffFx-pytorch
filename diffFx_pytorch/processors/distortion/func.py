@@ -197,7 +197,7 @@ class BaseDistortion(ProcessorsBase):
         return (1 - mix) * x + mix * x_processed
 
 class TanHDist(BaseDistortion):
-    """Differentiable implementation of hyperbolic tangent distortion.
+    """Differentiable implementation of hyperbolic tangent distortion. 
 
     This processor implements smooth distortion using the hyperbolic tangent (tanh) function 
     for waveshaping. It provides analog-style saturation with natural compression characteristics
@@ -212,54 +212,54 @@ class TanHDist(BaseDistortion):
     where x is the input signal (optionally pre-gained and DC biased in shaping mode).
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
-    shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
-        When True, enables:
-        - Pre-gain control
-        - DC bias adjustment
-        - Post-gain control
-        - Automatic DC filtering
+        sample_rate (int): Audio sample rate in Hz
+        shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
+            When True, enables:
+            - Pre-gain control
+            - DC bias adjustment
+            - Post-gain control
+            - Automatic DC filtering
 
     Parameters Details:
-    Basic Mode (shaping_mode=False):
-        mix: Wet/dry mix ratio
-            - Range: 0.0 to 1.0
-            - 0.0: Only clean signal
-            - 1.0: Only distorted signal
+    
+        Basic Mode (shaping_mode=False):
+            mix: Wet/dry mix ratio
+                - Range: 0.0 to 1.0
+                - 0.0: Only clean signal
+                - 1.0: Only distorted signal
 
-    Shaping Mode (shaping_mode=True):
-        Adds:
-        pre_gain_db: Input gain before distortion
-            - Range: -24.0 to 24.0 dB
-            - Controls amount of drive into saturation
-            
-        post_gain_db: Output gain after distortion
-            - Range: -24.0 to 0.0 dB
-            - Compensates for level changes
-            
-        dc_bias: DC offset before distortion
-            - Range: -0.2 to 0.2
-            - Affects harmonic content
+        Shaping Mode (shaping_mode=True):
+            pre_gain_db: Input gain before distortion
+                - Range: -24.0 to 24.0 dB
+                - Controls amount of drive into saturation
+                
+            post_gain_db: Output gain after distortion
+                - Range: -24.0 to 0.0 dB
+                - Compensates for level changes
+                
+            dc_bias: DC offset before distortion
+                - Range: -0.2 to 0.2
+                - Affects harmonic content
 
     Examples:
-    Basic DSP Usage:
-        >>> # Create a tanh distortion
-        >>> dist = TanHDist(sample_rate=44100)
-        >>> # Process with basic settings
-        >>> output = dist(input_audio, dsp_params={
-        ...     'mix': 0.7  # 70% wet signal
-        ... })
+        Basic DSP Usage:
+            >>> # Create a tanh distortion
+            >>> dist = TanHDist(sample_rate=44100)
+            >>> # Process with basic settings
+            >>> output = dist(input_audio, dsp_params={
+            ...     'mix': 0.7  # 70% wet signal
+            ... })
 
-    Advanced Usage (shaping_mode=True):
-        >>> # Create with waveshaping controls
-        >>> dist = TanHDist(sample_rate=44100, shaping_mode=True)
-        >>> # Process with detailed control
-        >>> output = dist(input_audio, dsp_params={
-        ...     'pre_gain_db': 12.0,   # Drive into distortion
-        ...     'post_gain_db': -6.0,  # Compensate output
-        ...     'dc_bias': 0.1,        # Add asymmetry
-        ...     'mix': 0.8             # 80% wet
-        ... })
+        Advanced Usage (shaping_mode=True):
+            >>> # Create with waveshaping controls
+            >>> dist = TanHDist(sample_rate=44100, shaping_mode=True)
+            >>> # Process with detailed control
+            >>> output = dist(input_audio, dsp_params={
+            ...     'pre_gain_db': 12.0,   # Drive into distortion
+            ...     'post_gain_db': -6.0,  # Compensate output
+            ...     'dc_bias': 0.1,        # Add asymmetry
+            ...     'mix': 0.8             # 80% wet
+            ... })
     """
     def _apply_distortion(self, x, params):
         """Apply hyperbolic tangent distortion to the input signal.
@@ -293,60 +293,53 @@ class SoftDist(BaseDistortion):
     where x is the input signal (optionally pre-gained and DC biased in shaping mode).
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
-    shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
-        When True, enables:
-        - Pre-gain control
-        - DC bias adjustment
-        - Post-gain control
-        - Automatic DC filtering
+        sample_rate (int): Audio sample rate in Hz
+        shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
+            When True, enables:
+            - Pre-gain control
+            - DC bias adjustment
+            - Post-gain control
+            - Automatic DC filtering
 
     Parameters Details:
-    Basic Mode (shaping_mode=False):
-        mix: Wet/dry mix ratio
-            - Range: 0.0 to 1.0
-            - 0.0: Only clean signal
-            - 1.0: Only distorted signal
+        Basic Mode (shaping_mode=False):
+            mix: Wet/dry mix ratio
+                - Range: 0.0 to 1.0
+                - 0.0: Only clean signal
+                - 1.0: Only distorted signal
 
-    Shaping Mode (shaping_mode=True):
-        Adds:
-        pre_gain_db: Input gain before distortion
-            - Range: -24.0 to 24.0 dB
-            - Controls amount of drive into clipping
-            
-        post_gain_db: Output gain after distortion
-            - Range: -24.0 to 0.0 dB
-            - Compensates for level changes
-            
-        dc_bias: DC offset before distortion
-            - Range: -0.2 to 0.2
-            - Affects asymmetric clipping
-
-    Note:
-    - Smooth transition at clipping boundaries
-    - More musical than hard clipping
-    - Generates both odd and even harmonics
-    - Good for subtle to moderate overdrive
+        Shaping Mode (shaping_mode=True):
+            pre_gain_db: Input gain before distortion
+                - Range: -24.0 to 24.0 dB
+                - Controls amount of drive into clipping
+                
+            post_gain_db: Output gain after distortion
+                - Range: -24.0 to 0.0 dB
+                - Compensates for level changes
+                
+            dc_bias: DC offset before distortion
+                - Range: -0.2 to 0.2
+                - Affects asymmetric clipping
 
     Examples:
-    Basic DSP Usage:
-        >>> # Create a soft clipper
-        >>> dist = SoftDist(sample_rate=44100)
-        >>> # Process with basic settings
-        >>> output = dist(input_audio, dsp_params={
-        ...     'mix': 0.6  # 60% wet signal
-        ... })
+        Basic DSP Usage:
+            >>> # Create a soft clipper
+            >>> dist = SoftDist(sample_rate=44100)
+            >>> # Process with basic settings
+            >>> output = dist(input_audio, dsp_params={
+            ...     'mix': 0.6  # 60% wet signal
+            ... })
 
-    Advanced Usage (shaping_mode=True):
-        >>> # Create with waveshaping controls
-        >>> dist = SoftDist(sample_rate=44100, shaping_mode=True)
-        >>> # Process with detailed control
-        >>> output = dist(input_audio, dsp_params={
-        ...     'pre_gain_db': 18.0,   # Drive into clipping
-        ...     'post_gain_db': -9.0,  # Compensate output
-        ...     'dc_bias': 0.05,       # Slight asymmetry
-        ...     'mix': 0.7             # 70% wet
-        ... })
+        Advanced Usage (shaping_mode=True):
+            >>> # Create with waveshaping controls
+            >>> dist = SoftDist(sample_rate=44100, shaping_mode=True)
+            >>> # Process with detailed control
+            >>> output = dist(input_audio, dsp_params={
+            ...     'pre_gain_db': 18.0,   # Drive into clipping
+            ...     'post_gain_db': -9.0,  # Compensate output
+            ...     'dc_bias': 0.05,       # Slight asymmetry
+            ...     'mix': 0.7             # 70% wet
+            ... })
     """
     def _apply_distortion(self, x, params):
         """Apply soft-clipping distortion to the input signal.
@@ -360,8 +353,8 @@ class SoftDist(BaseDistortion):
             
         Note:
             Uses a piecewise function:
-            - Linear clipping for |x| ≥ 1
-            - Cubic polynomial for |x| < 1
+            - Linear clipping for :math:`|x| \geq 1`
+            - Cubic polynomial for :math:`|x| < 1`
         """
         y = torch.zeros_like(x)
         
@@ -397,61 +390,60 @@ class HardDist(BaseDistortion):
     where x is the input signal (optionally pre-gained and DC biased in shaping mode).
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
-    shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
-        When True, enables:
-        - Pre-gain control
-        - DC bias adjustment
-        - Post-gain control
-        - Automatic DC filtering
+        sample_rate (int): Audio sample rate in Hz
+        shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
+            When True, enables:
+            - Pre-gain control
+            - DC bias adjustment
+            - Post-gain control
+            - Automatic DC filtering
 
     Parameters Details:
-    Basic Mode (shaping_mode=False):
-        threshold: Clipping threshold level
-            - Range: 0.1 to 1.0
-            - Lower values create more aggressive clipping
-            - Higher values preserve more dynamics
-            
-        mix: Wet/dry mix ratio
-            - Range: 0.0 to 1.0
-            - 0.0: Only clean signal
-            - 1.0: Only distorted signal
+        Basic Mode (shaping_mode=False):
+            threshold: Clipping threshold level
+                - Range: 0.1 to 1.0
+                - Lower values create more aggressive clipping
+                - Higher values preserve more dynamics
+                
+            mix: Wet/dry mix ratio
+                - Range: 0.0 to 1.0
+                - 0.0: Only clean signal
+                - 1.0: Only distorted signal
 
-    Shaping Mode (shaping_mode=True):
-        Adds:
-        pre_gain_db: Input gain before distortion
-            - Range: -24.0 to 24.0 dB
-            - Controls amount of drive into clipping
-            
-        post_gain_db: Output gain after distortion
-            - Range: -24.0 to 0.0 dB
-            - Compensates for level changes
-            
-        dc_bias: DC offset before distortion
-            - Range: -0.2 to 0.2
-            - Affects asymmetric clipping
+        Shaping Mode (shaping_mode=True):
+            pre_gain_db: Input gain before distortion
+                - Range: -24.0 to 24.0 dB
+                - Controls amount of drive into clipping
+                
+            post_gain_db: Output gain after distortion
+                - Range: -24.0 to 0.0 dB
+                - Compensates for level changes
+                
+            dc_bias: DC offset before distortion
+                - Range: -0.2 to 0.2
+                - Affects asymmetric clipping
 
     Examples:
-    Basic DSP Usage:
-        >>> # Create a hard clipper
-        >>> dist = HardDist(sample_rate=44100)
-        >>> # Process with basic settings
-        >>> output = dist(input_audio, dsp_params={
-        ...     'threshold': 0.3,  # Aggressive clipping
-        ...     'mix': 0.8        # 80% wet signal
-        ... })
+        Basic DSP Usage:
+            >>> # Create a hard clipper
+            >>> dist = HardDist(sample_rate=44100)
+            >>> # Process with basic settings
+            >>> output = dist(input_audio, dsp_params={
+            ...     'threshold': 0.3,  # Aggressive clipping
+            ...     'mix': 0.8        # 80% wet signal
+            ... })
 
-    Advanced Usage (shaping_mode=True):
-        >>> # Create with waveshaping controls
-        >>> dist = HardDist(sample_rate=44100, shaping_mode=True)
-        >>> # Process with detailed control
-        >>> output = dist(input_audio, dsp_params={
-        ...     'threshold': 0.5,      # Moderate clipping
-        ...     'pre_gain_db': 15.0,   # Drive into clipping
-        ...     'post_gain_db': -12.0, # Compensate output
-        ...     'dc_bias': 0.1,        # Add asymmetry
-        ...     'mix': 0.7             # 70% wet
-        ... })
+        Advanced Usage (shaping_mode=True):
+            >>> # Create with waveshaping controls
+            >>> dist = HardDist(sample_rate=44100, shaping_mode=True)
+            >>> # Process with detailed control
+            >>> output = dist(input_audio, dsp_params={
+            ...     'threshold': 0.5,      # Moderate clipping
+            ...     'pre_gain_db': 15.0,   # Drive into clipping
+            ...     'post_gain_db': -12.0, # Compensate output
+            ...     'dc_bias': 0.1,        # Add asymmetry
+            ...     'mix': 0.7             # 70% wet
+            ... })
     """
     def _add_specific_parameters(self):
         """Register additional parameters specific to hard clipping.
@@ -510,47 +502,46 @@ class DoubleSoftDist(BaseDistortion):
         \\end{cases}
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
-    shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
-        When True, enables:
-        - Pre-gain control
-        - DC bias adjustment
-        - Post-gain control
-        - Automatic DC filtering
+        sample_rate (int): Audio sample rate in Hz
+        shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
+            When True, enables:
+            - Pre-gain control
+            - DC bias adjustment
+            - Post-gain control
+            - Automatic DC filtering
 
     Parameters Details:
-    Basic Mode (shaping_mode=False):
-        upper_lim: Positive clipping limit
-            - Range: 0.1 to 1.0
-            - Controls maximum positive output
-            
-        lower_lim: Negative clipping limit
-            - Range: -1.0 to -0.1
-            - Controls maximum negative output
-            
-        slope: Transfer function steepness
-            - Range: 1.0 to 10.0
-            - Higher values create sharper transitions
-            
-        x_off_factor: Offset control
-            - Range: 0.0 to 1.0
-            - Affects symmetry of clipping curve
-            
-        upper_skew: Positive region shaping
-            - Range: 0.1 to 2.0
-            - Controls shape of positive overdrive
-            
-        lower_skew: Negative region shaping
-            - Range: 0.1 to 2.0
-            - Controls shape of negative overdrive
-            
-        mix: Wet/dry mix ratio
-            - Range: 0.0 to 1.0
-            - 0.0: Only clean signal
-            - 1.0: Only distorted signal
+        Basic Mode (shaping_mode=False):
+            upper_lim: Positive clipping limit
+                - Range: 0.1 to 1.0
+                - Controls maximum positive output
+                
+            lower_lim: Negative clipping limit
+                - Range: -1.0 to -0.1
+                - Controls maximum negative output
+                
+            slope: Transfer function steepness
+                - Range: 1.0 to 10.0
+                - Higher values create sharper transitions
+                
+            x_off_factor: Offset control
+                - Range: 0.0 to 1.0
+                - Affects symmetry of clipping curve
+                
+            upper_skew: Positive region shaping
+                - Range: 0.1 to 2.0
+                - Controls shape of positive overdrive
+                
+            lower_skew: Negative region shaping
+                - Range: 0.1 to 2.0
+                - Controls shape of negative overdrive
+                
+            mix: Wet/dry mix ratio
+                - Range: 0.0 to 1.0
+                - 0.0: Only clean signal
+                - 1.0: Only distorted signal
 
     Shaping Mode (shaping_mode=True):
-        Adds standard shaping controls:
         pre_gain_db: Input gain before distortion
             - Range: -24.0 to 24.0 dB
             
@@ -561,35 +552,35 @@ class DoubleSoftDist(BaseDistortion):
             - Range: -0.2 to 0.2
 
     Examples:
-    Basic Usage:
-        >>> # Create a double soft clipper
-        >>> dist = DoubleSoftDist(sample_rate=44100)
-        >>> # Process with asymmetric settings
-        >>> output = dist(input_audio, dsp_params={
-        ...     'upper_lim': 0.8,
-        ...     'lower_lim': -0.6,
-        ...     'slope': 3.0,
-        ...     'x_off_factor': 0.2,
-        ...     'upper_skew': 1.5,
-        ...     'lower_skew': 1.2,
-        ...     'mix': 0.7
-        ... })
+        Basic Usage:
+            >>> # Create a double soft clipper
+            >>> dist = DoubleSoftDist(sample_rate=44100)
+            >>> # Process with asymmetric settings
+            >>> output = dist(input_audio, dsp_params={
+            ...     'upper_lim': 0.8,
+            ...     'lower_lim': -0.6,
+            ...     'slope': 3.0,
+            ...     'x_off_factor': 0.2,
+            ...     'upper_skew': 1.5,
+            ...     'lower_skew': 1.2,
+            ...     'mix': 0.7
+            ... })
 
-    Advanced Usage (shaping_mode=True):
-        >>> # Create with waveshaping controls
-        >>> dist = DoubleSoftDist(sample_rate=44100, shaping_mode=True)
-        >>> output = dist(input_audio, dsp_params={
-        ...     'upper_lim': 0.8,
-        ...     'lower_lim': -0.6,
-        ...     'slope': 3.0,
-        ...     'x_off_factor': 0.2,
-        ...     'upper_skew': 1.5,
-        ...     'lower_skew': 1.2,
-        ...     'pre_gain_db': 12.0,
-        ...     'post_gain_db': -6.0,
-        ...     'dc_bias': 0.1,
-        ...     'mix': 0.7
-        ... })
+        Advanced Usage (shaping_mode=True):
+            >>> # Create with waveshaping controls
+            >>> dist = DoubleSoftDist(sample_rate=44100, shaping_mode=True)
+            >>> output = dist(input_audio, dsp_params={
+            ...     'upper_lim': 0.8,
+            ...     'lower_lim': -0.6,
+            ...     'slope': 3.0,
+            ...     'x_off_factor': 0.2,
+            ...     'upper_skew': 1.5,
+            ...     'lower_skew': 1.2,
+            ...     'pre_gain_db': 12.0,
+            ...     'post_gain_db': -6.0,
+            ...     'dc_bias': 0.1,
+            ...     'mix': 0.7
+            ... })
     """
     def _add_specific_parameters(self):
         """Register additional parameters specific to double soft clipping.
@@ -710,29 +701,28 @@ class CubicDist(BaseDistortion):
     - drive = 10^{drive\\_db/20}
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
-    shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
-        When True, enables:
-        - Pre-gain control
-        - DC bias adjustment
-        - Post-gain control
-        - Automatic DC filtering
+        sample_rate (int): Audio sample rate in Hz
+        shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
+            When True, enables:
+            - Pre-gain control
+            - DC bias adjustment
+            - Post-gain control
+            - Automatic DC filtering
 
     Parameters Details:
-    Basic Mode (shaping_mode=False):
-        drive_db: Distortion intensity
-            - Range: -24.0 to 24.0 dB
-            - Controls amplitude of cubic term
-            - Higher values create more distortion
-            - Negative values reduce distortion
-            
-        mix: Wet/dry mix ratio
-            - Range: 0.0 to 1.0
-            - 0.0: Only clean signal
-            - 1.0: Only distorted signal
+        Basic Mode (shaping_mode=False):
+            drive_db: Distortion intensity
+                - Range: -24.0 to 24.0 dB
+                - Controls amplitude of cubic term
+                - Higher values create more distortion
+                - Negative values reduce distortion
+                
+            mix: Wet/dry mix ratio
+                - Range: 0.0 to 1.0
+                - 0.0: Only clean signal
+                - 1.0: Only distorted signal
 
     Shaping Mode (shaping_mode=True):
-        Adds:
         pre_gain_db: Input gain before distortion
             - Range: -24.0 to 24.0 dB
             - Controls overall drive level
@@ -746,26 +736,26 @@ class CubicDist(BaseDistortion):
             - Affects harmonic balance
 
     Examples:
-    Basic DSP Usage:
-        >>> # Create a cubic distortion
-        >>> dist = CubicDist(sample_rate=44100)
-        >>> # Process with moderate drive
-        >>> output = dist(input_audio, dsp_params={
-        ...     'drive_db': 12.0,  # 12dB of drive
-        ...     'mix': 0.7        # 70% wet signal
-        ... })
+        Basic DSP Usage:
+            >>> # Create a cubic distortion
+            >>> dist = CubicDist(sample_rate=44100)
+            >>> # Process with moderate drive
+            >>> output = dist(input_audio, dsp_params={
+            ...     'drive_db': 12.0,  # 12dB of drive
+            ...     'mix': 0.7        # 70% wet signal
+            ... })
 
-    Advanced Usage (shaping_mode=True):
-        >>> # Create with waveshaping controls
-        >>> dist = CubicDist(sample_rate=44100, shaping_mode=True)
-        >>> # Process with detailed control
-        >>> output = dist(input_audio, dsp_params={
-        ...     'drive_db': 18.0,      # Heavy distortion
-        ...     'pre_gain_db': 6.0,    # Additional input drive
-        ...     'post_gain_db': -12.0, # Output compensation
-        ...     'dc_bias': 0.05,       # Slight asymmetry
-        ...     'mix': 0.8             # 80% wet
-        ... })
+        Advanced Usage (shaping_mode=True):
+            >>> # Create with waveshaping controls
+            >>> dist = CubicDist(sample_rate=44100, shaping_mode=True)
+            >>> # Process with detailed control
+            >>> output = dist(input_audio, dsp_params={
+            ...     'drive_db': 18.0,      # Heavy distortion
+            ...     'pre_gain_db': 6.0,    # Additional input drive
+            ...     'post_gain_db': -12.0, # Output compensation
+            ...     'dc_bias': 0.05,       # Slight asymmetry
+            ...     'mix': 0.8             # 80% wet
+            ... })
     """
     def _add_specific_parameters(self):
         """Register additional parameters specific to cubic distortion.
@@ -823,34 +813,33 @@ class RectifierDist(BaseDistortion):
         \\end{cases}
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
-    shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
-        When True, enables:
-        - Pre-gain control
-        - DC bias adjustment
-        - Post-gain control
-        - Automatic DC filtering
+        sample_rate (int): Audio sample rate in Hz
+        shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
+            When True, enables:
+            - Pre-gain control
+            - DC bias adjustment
+            - Post-gain control
+            - Automatic DC filtering
 
     Parameters Details:
-    Basic Mode (shaping_mode=False):
-        mode: Rectification type
-            - Range: 0.0 to 1.0
-            - 0.0: Half-wave rectification
-            - 1.0: Full-wave rectification
-            - Intermediate values blend between modes
-            
-        threshold: Signal threshold for rectification
-            - Range: 0.0 to 1.0
-            - Signals below threshold are set to zero
-            - Higher values create gating effects
-            
-        mix: Wet/dry mix ratio
-            - Range: 0.0 to 1.0
-            - 0.0: Only clean signal
-            - 1.0: Only rectified signal
+        Basic Mode (shaping_mode=False):
+            mode: Rectification type
+                - Range: 0.0 to 1.0
+                - 0.0: Half-wave rectification
+                - 1.0: Full-wave rectification
+                - Intermediate values blend between modes
+                
+            threshold: Signal threshold for rectification
+                - Range: 0.0 to 1.0
+                - Signals below threshold are set to zero
+                - Higher values create gating effects
+                
+            mix: Wet/dry mix ratio
+                - Range: 0.0 to 1.0
+                - 0.0: Only clean signal
+                - 1.0: Only rectified signal
 
     Shaping Mode (shaping_mode=True):
-        Adds:
         pre_gain_db: Input gain before rectification
             - Range: -24.0 to 24.0 dB
             - Controls amount of signal above threshold
@@ -871,28 +860,28 @@ class RectifierDist(BaseDistortion):
     - Can generate octave-up effects (full-wave)
 
     Examples:
-    Basic DSP Usage:
-        >>> # Create a rectifier distortion
-        >>> dist = RectifierDist(sample_rate=44100)
-        >>> # Process with half-wave rectification
-        >>> output = dist(input_audio, dsp_params={
-        ...     'mode': 0.0,       # Half-wave mode
-        ...     'threshold': 0.2,  # Low threshold
-        ...     'mix': 0.6         # 60% wet signal
-        ... })
+        Basic DSP Usage:
+            >>> # Create a rectifier distortion
+            >>> dist = RectifierDist(sample_rate=44100)
+            >>> # Process with half-wave rectification
+            >>> output = dist(input_audio, dsp_params={
+            ...     'mode': 0.0,       # Half-wave mode
+            ...     'threshold': 0.2,  # Low threshold
+            ...     'mix': 0.6         # 60% wet signal
+            ... })
 
-    Advanced Usage (shaping_mode=True):
-        >>> # Create with waveshaping controls
-        >>> dist = RectifierDist(sample_rate=44100, shaping_mode=True)
-        >>> # Process with detailed control
-        >>> output = dist(input_audio, dsp_params={
-        ...     'mode': 0.7,          # Blend of half/full wave
-        ...     'threshold': 0.3,     # Moderate threshold
-        ...     'pre_gain_db': 12.0,  # Drive into rectification
-        ...     'post_gain_db': -6.0, # Compensate output
-        ...     'dc_bias': 0.1,       # Add asymmetry
-        ...     'mix': 0.8            # 80% wet
-        ... })
+        Advanced Usage (shaping_mode=True):
+            >>> # Create with waveshaping controls
+            >>> dist = RectifierDist(sample_rate=44100, shaping_mode=True)
+            >>> # Process with detailed control
+            >>> output = dist(input_audio, dsp_params={
+            ...     'mode': 0.7,          # Blend of half/full wave
+            ...     'threshold': 0.3,     # Moderate threshold
+            ...     'pre_gain_db': 12.0,  # Drive into rectification
+            ...     'post_gain_db': -6.0, # Compensate output
+            ...     'dc_bias': 0.1,       # Add asymmetry
+            ...     'mix': 0.8            # 80% wet
+            ... })
     """
     def _add_specific_parameters(self):
         """Register additional parameters specific to rectifier distortion.
@@ -945,7 +934,7 @@ class ArcTanDist(BaseDistortion):
     The transfer function is:
 
     .. math::
-
+    
         y = \\frac{2}{\\pi} \\arctan(x * drive)
 
     where:
@@ -954,29 +943,28 @@ class ArcTanDist(BaseDistortion):
     - 2/π factor normalizes output to [-1, 1] range
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
-    shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
-        When True, enables:
-        - Pre-gain control
-        - DC bias adjustment
-        - Post-gain control
-        - Automatic DC filtering
+        sample_rate (int): Audio sample rate in Hz
+        shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
+            When True, enables:
+            - Pre-gain control
+            - DC bias adjustment
+            - Post-gain control
+            - Automatic DC filtering
 
     Parameters Details:
-    Basic Mode (shaping_mode=False):
-        drive: Distortion intensity
-            - Range: 0.1 to 10.0
-            - Controls slope of arctangent curve
-            - Higher values create more saturation
-            - Lower values provide subtle warming
-            
-        mix: Wet/dry mix ratio
-            - Range: 0.0 to 1.0
-            - 0.0: Only clean signal
-            - 1.0: Only distorted signal
+        Basic Mode (shaping_mode=False):
+            drive: Distortion intensity
+                - Range: 0.1 to 10.0
+                - Controls slope of arctangent curve
+                - Higher values create more saturation
+                - Lower values provide subtle warming
+                
+            mix: Wet/dry mix ratio
+                - Range: 0.0 to 1.0
+                - 0.0: Only clean signal
+                - 1.0: Only distorted signal
 
     Shaping Mode (shaping_mode=True):
-        Adds:
         pre_gain_db: Input gain before distortion
             - Range: -24.0 to 24.0 dB
             - Controls signal level into arctangent
@@ -989,34 +977,27 @@ class ArcTanDist(BaseDistortion):
             - Range: -0.2 to 0.2
             - Affects harmonic content
 
-    Note:
-    - Creates smooth, musical distortion
-    - Natural compression at high drive levels
-    - Generates primarily odd harmonics
-    - Similar to but smoother than tanh
-    - Output automatically normalized to [-1, 1]
-
     Examples:
-    Basic DSP Usage:
-        >>> # Create an arctangent distortion
-        >>> dist = ArcTanDist(sample_rate=44100)
-        >>> # Process with moderate drive
-        >>> output = dist(input_audio, dsp_params={
-        ...     'drive': 4.0,  # Moderate saturation
-        ...     'mix': 0.7    # 70% wet signal
-        ... })
+        Basic DSP Usage:
+            >>> # Create an arctangent distortion
+            >>> dist = ArcTanDist(sample_rate=44100)
+            >>> # Process with moderate drive
+            >>> output = dist(input_audio, dsp_params={
+            ...     'drive': 4.0,  # Moderate saturation
+            ...     'mix': 0.7    # 70% wet signal
+            ... })
 
-    Advanced Usage (shaping_mode=True):
-        >>> # Create with waveshaping controls
-        >>> dist = ArcTanDist(sample_rate=44100, shaping_mode=True)
-        >>> # Process with detailed control
-        >>> output = dist(input_audio, dsp_params={
-        ...     'drive': 6.0,         # Strong saturation
-        ...     'pre_gain_db': 6.0,   # Additional drive
-        ...     'post_gain_db': -3.0, # Slight attenuation
-        ...     'dc_bias': 0.05,      # Slight asymmetry
-        ...     'mix': 0.8            # 80% wet
-        ... })
+        Advanced Usage (shaping_mode=True):
+            >>> # Create with waveshaping controls
+            >>> dist = ArcTanDist(sample_rate=44100, shaping_mode=True)
+            >>> # Process with detailed control
+            >>> output = dist(input_audio, dsp_params={
+            ...     'drive': 6.0,         # Strong saturation
+            ...     'pre_gain_db': 6.0,   # Additional drive
+            ...     'post_gain_db': -3.0, # Slight attenuation
+            ...     'dc_bias': 0.05,      # Slight asymmetry
+            ...     'mix': 0.8            # 80% wet
+            ... })
     """
     def _add_specific_parameters(self):
         """Register additional parameters specific to arctangent distortion.
@@ -1064,84 +1045,76 @@ class ExponentialDist(BaseDistortion):
         y = sign(x) * (1 - e^{-|x| * drive * A(x)})
 
     where:
-    - x is the input signal
-    - drive controls overall distortion intensity
-    - A(x) is the asymmetry function:
-        - A(x) = 1 for x ≥ 0
-        - A(x) = asymmetry for x < 0
+        - x is the input signal
+        - drive controls overall distortion intensity
+        - A(x) is the asymmetry function:
+            - A(x) = 1 for x ≥ 0
+            - A(x) = asymmetry for x < 0
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
-    shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
-        When True, enables:
-        - Pre-gain control
-        - DC bias adjustment
-        - Post-gain control
-        - Automatic DC filtering
+        sample_rate (int): Audio sample rate in Hz
+        shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
+            - Pre-gain control
+            - DC bias adjustment
+            - Post-gain control
+            - Automatic DC filtering
 
     Parameters Details:
-    Basic Mode (shaping_mode=False):
-        drive: Distortion intensity
-            - Range: 0.1 to 10.0
-            - Controls steepness of exponential curve
-            - Higher values create more saturation
-            - Affects both positive and negative regions
-            
-        asymmetry: Positive/negative balance
-            - Range: 0.1 to 2.0
-            - 1.0: Symmetric distortion
-            - <1.0: More negative distortion
-            - >1.0: More positive distortion
-            
-        mix: Wet/dry mix ratio
-            - Range: 0.0 to 1.0
-            - 0.0: Only clean signal
-            - 1.0: Only distorted signal
+        Basic Mode (shaping_mode=False):
+            drive: Distortion intensity
+                - Range: 0.1 to 10.0
+                - Controls steepness of exponential curve
+                - Higher values create more saturation
+                - Affects both positive and negative regions
+                
+            asymmetry: Positive/negative balance
+                - Range: 0.1 to 2.0
+                - 1.0: Symmetric distortion
+                - <1.0: More negative distortion
+                - >1.0: More positive distortion
+                
+            mix: Wet/dry mix ratio
+                - Range: 0.0 to 1.0
+                - 0.0: Only clean signal
+                - 1.0: Only distorted signal
 
-    Shaping Mode (shaping_mode=True):
-        Adds:
-        pre_gain_db: Input gain before distortion
-            - Range: -24.0 to 24.0 dB
-            - Controls signal level into exponential curve
-            
-        post_gain_db: Output gain after distortion
-            - Range: -24.0 to 0.0 dB
-            - Compensates for level changes
-            
-        dc_bias: DC offset before distortion
-            - Range: -0.2 to 0.2
-            - Affects harmonic balance
+        Shaping Mode (shaping_mode=True):
+            pre_gain_db: Input gain before distortion
+                - Range: -24.0 to 24.0 dB
+                - Controls signal level into exponential curve
+                
+            post_gain_db: Output gain after distortion
+                - Range: -24.0 to 0.0 dB
+                - Compensates for level changes
+                
+            dc_bias: DC offset before distortion
+                - Range: -0.2 to 0.2
+                - Affects harmonic balance
 
-    Note:
-    - Creates smooth compression curve
-    - Asymmetry control for harmonic shaping
-    - Natural limiting at high drive levels
-    - Output automatically bounded to [-1, 1]
-    - Particularly effective on transient material
 
     Examples:
-    Basic DSP Usage:
-        >>> # Create an exponential distortion
-        >>> dist = ExponentialDist(sample_rate=44100)
-        >>> # Process with asymmetric settings
-        >>> output = dist(input_audio, dsp_params={
-        ...     'drive': 3.0,      # Moderate drive
-        ...     'asymmetry': 1.5,  # More positive distortion
-        ...     'mix': 0.7         # 70% wet signal
-        ... })
+        Basic DSP Usage:
+            >>> # Create an exponential distortion
+            >>> dist = ExponentialDist(sample_rate=44100)
+            >>> # Process with asymmetric settings
+            >>> output = dist(input_audio, dsp_params={
+            ...     'drive': 3.0,      # Moderate drive
+            ...     'asymmetry': 1.5,  # More positive distortion
+            ...     'mix': 0.7         # 70% wet signal
+            ... })
 
-    Advanced Usage (shaping_mode=True):
-        >>> # Create with waveshaping controls
-        >>> dist = ExponentialDist(sample_rate=44100, shaping_mode=True)
-        >>> # Process with detailed control
-        >>> output = dist(input_audio, dsp_params={
-        ...     'drive': 5.0,         # Strong drive
-        ...     'asymmetry': 0.8,     # More negative distortion
-        ...     'pre_gain_db': 6.0,   # Additional input drive
-        ...     'post_gain_db': -6.0, # Output attenuation
-        ...     'dc_bias': 0.1,       # Slight positive offset
-        ...     'mix': 0.8            # 80% wet
-        ... })
+        Advanced Usage (shaping_mode=True):
+            >>> # Create with waveshaping controls
+            >>> dist = ExponentialDist(sample_rate=44100, shaping_mode=True)
+            >>> # Process with detailed control
+            >>> output = dist(input_audio, dsp_params={
+            ...     'drive': 5.0,         # Strong drive
+            ...     'asymmetry': 0.8,     # More negative distortion
+            ...     'pre_gain_db': 6.0,   # Additional input drive
+            ...     'post_gain_db': -6.0, # Output attenuation
+            ...     'dc_bias': 0.1,       # Slight positive offset
+            ...     'mix': 0.8            # 80% wet
+            ... })
     """
     def _add_specific_parameters(self):
         """Register additional parameters specific to exponential distortion.
@@ -1178,3 +1151,4 @@ class ExponentialDist(BaseDistortion):
         # Split processing for positive and negative values
         # Use sign(x) to maintain the sign while applying different curves
         return torch.sign(x) * (1 - torch.exp(-torch.abs(x) * drive * torch.where(x >= 0, torch.ones_like(x), asymmetry)))
+    

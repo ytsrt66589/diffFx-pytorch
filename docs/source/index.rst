@@ -24,6 +24,8 @@ Key Features
 
 Audio Processors
 ~~~~~~~~~~~~~~~
+* **Gain**
+    * Gain
 
 * **Equalization**
     * ToneStack
@@ -35,6 +37,11 @@ Audio Processors
     * Multi-band Compressor
     * Limiter
     * Multi-band Limiter
+    * Expander 
+    * Multi-band Expander
+    * Noise Gate
+    * Multi-band Noise Gate
+    * Transient Shaper 
 
 * **Delay**
     * Basic Delay
@@ -49,6 +56,28 @@ Audio Processors
     * Stereo Imager
     * Stereo Enhancer
 
+* **Modulation**
+    * Chorus 
+    * Multi-voice Chorus
+    * Stereo Chorus
+    * Flanger
+    * Feedback Flanger 
+    * Stereo Flanger
+    * Phaser 
+    * AutoWah (coming soon)
+    * Tremelo (coming soon)
+    * Ring Modulation (coming soon)
+
+* **Reverb**
+    * ConvIR Reverb (coming soon)
+    * Noise Shape Reverb (coming soon)
+    * Feedback Delay Network Reverb (coming soon)
+
+* **Distortion**
+    * TanH/Hard/Soft/Double-Soft/Cubic/Exponential/ArcTan/Rectifier 
+    * Bit Crusher 
+    * Exciter (coming soon)
+
 Implementation Features
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -60,12 +89,11 @@ Implementation Features
 Applications
 -----------
 
-Music Production
-~~~~~~~~~~~~~~~
+Data Augmentation
+~~~~~~~~~~~~~~~~~
 
-* Intelligent mixing and mastering
-* Adaptive audio processing
-* Parameter optimization
+* Effect-wise data augmentation
+* Audio Transformation 
 
 Research Applications
 ~~~~~~~~~~~~~~~~~~~
@@ -73,6 +101,10 @@ Research Applications
 * Neural audio effect modeling
 * Style transfer
 * Automatic music production
+* Intelligent mixing and mastering
+* Fx Parameter optimization
+
+
 
 Installation
 -----------

@@ -9,9 +9,9 @@ from ..base_utils import check_params
 
 
 class BitCrusher(ProcessorsBase):
-    """Differentiable implementation of a bit depth reduction effect.
-    
-    This processor implements bit crushing by reducing the number of available amplitude
+    """Differentiable implementation of a bit depth reduction effect. 
+
+    This processor implements bit crushing by reducing the number of available amplitude 
     levels in the signal, creating characteristic digital distortion and quantization
     effects. The implementation uses rounding to integer steps determined by the bit depth.
 
@@ -22,56 +22,47 @@ class BitCrusher(ProcessorsBase):
         y = round(x * 2^{bits}) / 2^{bits}
 
     where:
-    - x is the input signal (assumed to be in [-1, 1] range)
-    - bits is the target bit depth
-    - round() quantizes to nearest integer step
+        - x is the input signal (assumed to be in [-1, 1] range)
+        - bits is the target bit depth
+        - round() quantizes to nearest integer step
 
     Args:
-    sample_rate (int): Audio sample rate in Hz
+        sample_rate (int): Audio sample rate in Hz
 
     Parameters Details:
-    bit_depth: Target bit depth
-        - Range: 1.0 to 32.0 bits
-        - Lower values create more extreme effects
-        - Higher values preserve more detail
-        - Integer values match standard bit depths
-        - Fractional values allow smooth transitions
-
-    Note:
-    - Creates digital degradation effects
-    - Useful for lo-fi aesthetics
-    - More extreme at lower bit depths
-    - Maintains differentiability
-    - Automatically handles batch processing
+        bit_depth:
+            - Range: 1.0 to 32.0 bits
+            - Lower values create more extreme effects
+            - Higher values preserve more detail
 
     Examples:
-    Basic DSP Usage:
-        >>> # Create a bit crusher
-        >>> crusher = BitCrusher(sample_rate=44100)
-        >>> # Process with moderate bit reduction
-        >>> output = crusher(input_audio, dsp_params={
-        ...     'bit_depth': 8.0  # 8-bit quality
-        ... })
+        Basic DSP Usage:
+            >>> # Create a bit crusher
+            >>> crusher = BitCrusher(sample_rate=44100)
+            >>> # Process with moderate bit reduction
+            >>> output = crusher(input_audio, dsp_params={
+            ...     'bit_depth': 8.0  # 8-bit quality
+            ... })
 
-    Neural Network Control:
-        >>> # Create a simple bit depth controller
-        >>> class BitCrushController(nn.Module):
-        ...     def __init__(self, input_size):
-        ...         super().__init__()
-        ...         self.net = nn.Sequential(
-        ...             nn.Linear(input_size, 32),
-        ...             nn.ReLU(),
-        ...             nn.Linear(32, 1),
-        ...             nn.Sigmoid()  # Ensures output is in [0,1] range
-        ...         )
-        ...     
-        ...     def forward(self, x):
-        ...         return self.net(x)
-        >>> 
-        >>> # Process with predicted bit depth
-        >>> controller = BitCrushController(input_size=16)
-        >>> bit_depth = controller(features)
-        >>> output = crusher(input_audio, norm_params={'bit_depth': bit_depth})
+        Neural Network Control:
+            >>> # Create a simple bit depth controller
+            >>> class BitCrushController(nn.Module):
+            ...     def __init__(self, input_size):
+            ...         super().__init__()
+            ...         self.net = nn.Sequential(
+            ...             nn.Linear(input_size, 32),
+            ...             nn.ReLU(),
+            ...             nn.Linear(32, 1),
+            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
+            ...         )
+            ...     
+            ...     def forward(self, x):
+            ...         return self.net(x)
+            >>> 
+            >>> # Process with predicted bit depth
+            >>> controller = BitCrushController(input_size=16)
+            >>> bit_depth = controller(features)
+            >>> output = crusher(input_audio, norm_params={'bit_depth': bit_depth})
     """
     def __init__(self, sample_rate):
         super().__init__(sample_rate)
@@ -95,9 +86,6 @@ class BitCrusher(ProcessorsBase):
             
         Returns:
             torch.Tensor: Bit-crushed audio tensor of same shape as input
-            
-        Note:
-            Automatically handles broadcasting of bit_depth parameter.
         """
 
         # Reshape bit_depth for broadcasting
@@ -116,7 +104,7 @@ class BitCrusher(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain:
-                    - 'bit_depth': Target bit depth (0 to 1)
+                    - bit_depth: Target bit depth (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
                 Can specify bit depth as:
