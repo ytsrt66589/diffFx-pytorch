@@ -12,6 +12,7 @@ diffFx-pytorch provides a collection of differentiable audio effects processors 
 
 ## Installation
 
+(Haven't upload to pypi, so you can only try install via this repo)
 ```bash
 pip install diffFx-pytorch
 ```
