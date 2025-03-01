@@ -69,7 +69,7 @@ class Gain(ProcessorsBase):
     def _register_default_parameters(self):
         """Register gain parameter (-24.0 to 24.0 dB)."""
         self.params = {
-            'gain_db': EffectParam(min_val=-24.0, max_val=24.0)
+            'gain_db': EffectParam(min_val=0.0, max_val=24.0)
         }
     
     def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None):

@@ -2,6 +2,16 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
+import sphinx
+
+# Add in your configuration
+nitpicky = True  # Warn about all broken references
+needs_sphinx = '7.1.2'  # Minimum Sphinx version
+
+
+# Control how autodoc handles imports
+autodoc_mock_imports = ['torch', 'numpy']  # Add any problematic imports
+
 # -- Project information -----------------------------------------------------
 project = 'diffFx-pytorch'
 copyright = '2025, Yen-Tung (Arthur) Yeh'
@@ -14,7 +24,8 @@ extensions = [
     'sphinx.ext.napoleon',     # Support for NumPy and Google style docstrings
     'sphinx.ext.viewcode',     # Add links to highlighted source code
     'sphinx.ext.intersphinx',  # Link to other project's documentation
-    'sphinx_autodoc_typehints' # Better type hint support
+    'sphinx_autodoc_typehints', # Better type hint support
+    'sphinx.ext.mathjax'
 ]
 
 # Napoleon settings

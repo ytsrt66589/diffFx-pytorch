@@ -755,12 +755,15 @@ class MultiBandCompressor(ProcessorsBase):
         bands = []
         current_signal = x
         
+        bs, chs, seq = x.shape 
+        split_size = chs  
+        
         # Apply crossovers in series
         for i, crossover in enumerate(self.crossovers):
             lh = crossover.process(current_signal, norm_params=None, dsp_params={
                 'frequency': params[f'crossover{i}_freq']
             })
-            low, high = torch.split(lh, (1,1), -2)
+            low, high = torch.split(lh, (split_size,split_size), -2)
             bands.append(low)
             current_signal = high
         bands.append(current_signal)  # Add the final high band
