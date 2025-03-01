@@ -6,9 +6,9 @@ authors = [
     { name = "Yen-Tung (Arthur) Yeh" },
     { email = "ytsrt66589@gmail.com" },
 ]
-dependencies = ["torch", "torchaudio", "numpy",  "scipy", "torchlpc", "torchcomp"]
+dependencies = ["torch", "numpy", "torchlpc>=0.4", "torchcomp", "torchaudio",  "scipy", "numba-cuda==0.4.0", "pynvjitlink-cu12"]
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 license = {text = "Apache License 2.0"}
 classifiers = [
     "License :: OSI Approved :: Apache Software License",

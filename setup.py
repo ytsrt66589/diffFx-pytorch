@@ -9,7 +9,7 @@ DESCRIPTION = "Differentiable audio effect processors in PyTorch"
 URL = "https://github.com/ytsrt66589/diffFx-pytorch"
 EMAIL = "ytsrt66589@gmail.com"
 AUTHOR = "Yen-Tung (Arthur) Yeh"
-REQUIRES_PYTHON = ">=3.8.0"
+REQUIRES_PYTHON = ">=3.10.0"
 VERSION = "0.0.1"
 
 HERE = Path(__file__).parent
@@ -31,7 +31,7 @@ setup(
     python_requires=REQUIRES_PYTHON,
     url=URL,
     packages=["diffFx_pytorch"],
-    install_requires=["torch", "numpy", "scipy", "torchlpc", "torchcomp"],
+    install_requires=["torch", "numpy", "torchlpc>=0.4", "torchcomp", "torchaudio",  "scipy"],
     extras_require={"extra": ["matplotlib",  "librosa",]},
     include_package_data=True,
     license="Apache License 2.0",
