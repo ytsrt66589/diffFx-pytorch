@@ -1,11 +1,7 @@
 import torch 
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np 
-from typing import Dict, List, Tuple, Union
-
-from enum import Enum
-
+from typing import Dict, Union, Tuple
 from ..base_utils import check_params 
 from ..base import ProcessorsBase, EffectParam
 from ..core.midside import * 
@@ -121,9 +117,9 @@ class StereoImager(ProcessorsBase):
             >>> norm_params = controller(features)
             >>> output = imager(input_audio, norm_params=norm_params)
     """
-    def __init__(self, sample_rate, num_bands=3):
+    def __init__(self, sample_rate, param_range: Dict[str, EffectParam]=None, num_bands=3):
         self.num_bands = num_bands
-        super().__init__(sample_rate)
+        super().__init__(sample_rate, param_range)
         
         # Create crossover filters
         self.crossovers = nn.ModuleList([
@@ -177,7 +173,7 @@ class StereoImager(ProcessorsBase):
             side * (2 * width)        # Scale side based on width
         )
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """Process input signal through the multi-band stereo imager.
         
@@ -218,7 +214,7 @@ class StereoImager(ProcessorsBase):
         assert chs == 2, "Input tensor must have shape (batch_size, 2, seq_len)"
         
         # Convert to mid-side
-        x_ms = lr_to_ms(x, mult=np.sqrt(2))
+        x_ms = lr_to_ms(x, mult=1/np.sqrt(2))
         mid, side = torch.split(x_ms, (1, 1), dim=-2)
         
         # Split into frequency bands using LR crossovers
@@ -270,6 +266,6 @@ class StereoImager(ProcessorsBase):
         x_ms_new = torch.cat([processed_mid, processed_side], dim=-2)
         
         # Convert back to left-right
-        x_lr = ms_to_lr(x_ms_new)
+        x_lr = ms_to_lr(x_ms_new, mult=1/np.sqrt(2))
         
         return x_lr

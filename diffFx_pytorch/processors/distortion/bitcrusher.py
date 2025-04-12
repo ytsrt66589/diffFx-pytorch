@@ -7,7 +7,6 @@ from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
 
 
-
 class BitCrusher(ProcessorsBase):
     """Differentiable implementation of a bit depth reduction effect. 
 
@@ -64,8 +63,8 @@ class BitCrusher(ProcessorsBase):
             >>> bit_depth = controller(features)
             >>> output = crusher(input_audio, norm_params={'bit_depth': bit_depth})
     """
-    def __init__(self, sample_rate):
-        super().__init__(sample_rate)
+    def __init__(self, sample_rate, param_range: Dict[str, EffectParam] = None):
+        super().__init__(sample_rate, param_range)
     
     def _register_default_parameters(self):
         """Register bit depth parameter.

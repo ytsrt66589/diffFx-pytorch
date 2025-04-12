@@ -1,8 +1,6 @@
 import torch 
-import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np 
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Union
 from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
 from ..filters import DCFilter
@@ -14,7 +12,7 @@ class BaseDistortion(ProcessorsBase):
     This class provides a foundation for implementing different types of distortion effects,
     with optional waveshaping parameters for more detailed control over the distortion characteristics.
     It includes pre/post gain staging, DC bias control, and automatic DC filtering when in shaping mode.
-
+    
     Args:
         sample_rate (int): Audio sample rate in Hz
         shaping_mode (bool): Whether to enable additional waveshaping controls. Defaults to False.
@@ -65,7 +63,7 @@ class BaseDistortion(ProcessorsBase):
                 return torch.tanh(drive * x)
         ```
     """
-    def __init__(self, sample_rate, shaping_mode=False):
+    def __init__(self, sample_rate, param_range=None,shaping_mode=False):
         """Initialize the distortion processor.
     
         Args:
@@ -73,7 +71,7 @@ class BaseDistortion(ProcessorsBase):
             shaping_mode (bool): Whether to enable waveshaping controls. Defaults to False.
         """
         self.shaping_mode = shaping_mode
-        super().__init__(sample_rate)
+        super().__init__(sample_rate, param_range)
         
         if self.shaping_mode:
             self.dc_filter = DCFilter(sample_rate, learnable=False)
@@ -86,8 +84,8 @@ class BaseDistortion(ProcessorsBase):
                 - mix: Wet/dry balance (0.0 to 1.0)
                 
             Shaping Mode:
-                - pre_gain_db: Input gain (-24.0 to 24.0 dB)
-                - post_gain_db: Output gain (-24.0 to 0.0 dB)
+                - pre_gain_db: Input gain (-12.0 to 12.0 dB)
+                - post_gain_db: Output gain (-12.0 to 12.0 dB)
                 - dc_bias: DC offset (-0.2 to 0.2)
         """
         base_params = {
@@ -95,8 +93,8 @@ class BaseDistortion(ProcessorsBase):
         }
         
         shaping_params = {
-            'pre_gain_db': EffectParam(min_val=-24.0, max_val=24.0),
-            'post_gain_db': EffectParam(min_val=-24.0, max_val=0.0),
+            'pre_gain_db': EffectParam(min_val=-12.0, max_val=12.0),
+            'post_gain_db': EffectParam(min_val=-12.0, max_val=12.0),
             'dc_bias': EffectParam(min_val=-0.2, max_val=0.2),
         }
         
@@ -136,7 +134,7 @@ class BaseDistortion(ProcessorsBase):
         """
         raise NotImplementedError
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the distortion effect.
     
         Args:

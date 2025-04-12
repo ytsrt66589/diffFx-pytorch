@@ -1,11 +1,6 @@
 import torch 
-import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np 
-from typing import Dict, List, Tuple, Union
-
-from enum import Enum
-
+from typing import Dict, Union
 from ..base_utils import check_params 
 from ..base import ProcessorsBase, EffectParam
 from ..core.midside import * 
@@ -101,7 +96,7 @@ class StereoPanning(ProcessorsBase):
             'pan': EffectParam(min_val=0.0, max_val=1.0),
         } 
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the stereo panner.
         
         Args:

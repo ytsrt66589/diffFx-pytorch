@@ -1,9 +1,8 @@
 import torch 
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np 
 from enum import Enum
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Union
 from ..base_utils import check_params
 from ..base import ProcessorsBase, EffectParam
 from ..filters import BiquadFilter
@@ -117,16 +116,15 @@ class GraphicEqualizer(ProcessorsBase):
             >>> norm_params = controller(features)
             >>> output = eq(input_audio, norm_params=norm_params)
     """
-    def __init__(self, sample_rate=44100, num_bands=10, q_factors=None, eq_type='iso'):
+    def __init__(self, sample_rate=44100, param_range = None, num_bands=10, q_factors=None, eq_type='octave'):
         self.num_bands = num_bands
-        super().__init__(sample_rate)
+        super().__init__(sample_rate, param_range)
         self.eq_type = GraphicEQType(eq_type)
         
         if eq_type == 'octave':
             self.R = 2 
         elif eq_type == 'third-octave':
             self.R = 2**(1/3)
-        
         
         if q_factors is None:
             self.band_q = np.sqrt(self.R)/(self.R-1)
@@ -138,7 +136,8 @@ class GraphicEqualizer(ProcessorsBase):
         self.band_filters = nn.ModuleList([
             BiquadFilter(
                 sample_rate=self.sample_rate,
-                filter_type='PK'
+                filter_type='PK',
+                # backend='fsm'
             ) for _ in range(num_bands)
         ])
 
@@ -176,8 +175,11 @@ class GraphicEqualizer(ProcessorsBase):
         for i in range(self.num_bands):
             self.params[f'band_{i+1}_gain_db'] = EffectParam(min_val=-12.0, max_val=12.0)
     
-    def _prepare_band_parameters(self, band_idx: int, params: Dict[str, torch.Tensor], 
-                               device: torch.device) -> Dict[str, torch.Tensor]:
+    def _prepare_band_parameters(self, 
+        band_idx: int, 
+        params: Dict[str, torch.Tensor], 
+        device: torch.device
+    ) -> Dict[str, torch.Tensor]:
         """Prepare filter parameters for a single frequency band.
         
         Args:
@@ -200,8 +202,8 @@ class GraphicEqualizer(ProcessorsBase):
         
         # Expand parameters to match batch size if needed
         batch_size = params[f'{band_name}_gain_db'].shape[0]
-        freq = freq.expand(batch_size)
-        q = q.expand(batch_size)
+        freq = freq.expand(batch_size).float()
+        q = q.expand(batch_size).float()
         
         return {
             'gain_db': params[f'{band_name}_gain_db'],
@@ -209,8 +211,11 @@ class GraphicEqualizer(ProcessorsBase):
             'q_factor': q
         }
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
-                dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(self, 
+        x: torch.Tensor, 
+        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ) -> torch.Tensor:
         """Process input signal through the graphic equalizer.
 
         Args:
@@ -242,7 +247,7 @@ class GraphicEqualizer(ProcessorsBase):
         outputs = []
         for i in range(self.num_bands):
             band_params = self._prepare_band_parameters(i, params, x.device)
-            band_output = self.band_filters[i](x, dsp_params=band_params)
+            band_output = self.band_filters[i](x, None, dsp_params=band_params)
             outputs.append(band_output)
             
         # Sum all band outputs and normalize

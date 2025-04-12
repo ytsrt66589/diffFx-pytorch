@@ -1,23 +1,19 @@
 import math
-
 import torch
 import torch.fft
-import torch.nn as nn
-import torch.nn.functional as F
 
-from ..core.iir import IIRFilter
-from ..core.midside import lr_to_ms, ms_to_lr
-from ..core.utils import normalize_impulse, freq_to_normalized
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Tuple, Union
 from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
 from .biquad import BiquadFilter
-
-
+# https://ccrma.stanford.edu/~jos/filters/DC_Blocker.html 
+# first-order high-pass filter
 class DCFilter(ProcessorsBase):
     def __init__(self, sample_rate=44100, learnable=False):
         super().__init__(sample_rate)
         # Create filter banks
+        # self.highpass_filters = IIRFilter(order=2)
+        
         self.highpass_filters = BiquadFilter(sample_rate, filter_type='hp')
         
         self.default_dsp_params = {
@@ -32,7 +28,7 @@ class DCFilter(ProcessorsBase):
             'frequency': EffectParam(min_val=0.0, max_val=20.0),  # Crossover frequency
         }
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         
         if self.learnable:
             check_params(norm_params, dsp_params)
@@ -54,6 +50,6 @@ class DCFilter(ProcessorsBase):
             'q_factor': self.default_dsp_params['q_factor'].expand(batch_size),
             'gain_db': self.default_dsp_params['gain_db'].expand(batch_size)
         }
-        x_processed = self.highpass_filters(x, dsp_params=filter_params)
+        x_processed = self.highpass_filters(x, None, filter_params)
         
         return x_processed

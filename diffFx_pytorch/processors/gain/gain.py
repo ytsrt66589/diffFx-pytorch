@@ -1,8 +1,5 @@
 import torch 
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np 
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Union
 from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
 
@@ -27,10 +24,11 @@ class Gain(ProcessorsBase):
 
     Args:
         sample_rate (int): Audio sample rate in Hz
-
+        param_range (Dict[str, EffectParam]): Parameter range for the gain control
+    
     Parameters Details:
         gain_db: Gain control in decibels
-            - Range: -24.0 to 24.0 dB
+            - Range: -12.0 to 12.0 dB
             - Logarithmic control for natural volume scaling
 
     Examples:
@@ -63,16 +61,20 @@ class Gain(ProcessorsBase):
             >>> norm_params = controller(features)
             >>> output = gain(input_audio, norm_params=norm_params)
     """
-    def __init__(self, sample_rate):
-        super().__init__(sample_rate)
-    
+    def __init__(self, sample_rate: int, param_range: Dict[str, EffectParam] = None):
+        super().__init__(sample_rate, param_range)
+
     def _register_default_parameters(self):
-        """Register gain parameter (-24.0 to 24.0 dB)."""
+        """Register gain parameter (-12.0 to 12.0 dB)."""
         self.params = {
-            'gain_db': EffectParam(min_val=0.0, max_val=24.0)
+            'gain_db': EffectParam(min_val=-12.0, max_val=12.0)
         }
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None):
+    def process(self, 
+        x: torch.Tensor, 
+        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None
+    ):
         """Process input signal through the gain stage.
     
         Args:
@@ -89,7 +91,6 @@ class Gain(ProcessorsBase):
         
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
         """
         check_params(norm_params, dsp_params)
         

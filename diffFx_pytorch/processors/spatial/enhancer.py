@@ -54,7 +54,7 @@ class StereoEnhancer(ProcessorsBase):
             
         width: Overall stereo width control
             - Range: 0.0 to 1.0
-            - 0.0: No enhancement (original signal)
+            - 0.5: No enhancement (original signal)
             - 1.0: Maximum enhancement
             - Scales the processed side signal
 
@@ -122,7 +122,7 @@ class StereoEnhancer(ProcessorsBase):
             'width': EffectParam(min_val=0.0, max_val=1.0)
         }
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the stereo enhancer.
         
         Args:
@@ -160,22 +160,33 @@ class StereoEnhancer(ProcessorsBase):
         assert chs == 2, "Input tensor must have shape (bs, 2, seq_len)"
         
         # Convert to M/S
-        x_ms = lr_to_ms(x, mult=np.sqrt(2))
+        x_ms = lr_to_ms(x, mult=1/np.sqrt(2))
         mid, side = torch.split(x_ms, (1, 1), -2)
         
         # Apply delay to side channel
-        Side = torch.fft.rfft(side)
-        freqs = torch.fft.rfftfreq(x.shape[-1], 1/self.sample_rate).to(x.device)
+        # Calculate FFT size (next power of 2 for efficiency)
+        max_delay_samples = max(
+            1,
+            int(torch.max(params['delay_ms']) * self.sample_rate / 1000)
+        )
+        fft_size = 2 ** int(np.ceil(np.log2(side.shape[-1] + max_delay_samples)))
+        # Pad input signal to FFT size
+        pad_right = fft_size - (x.shape[-1] + max_delay_samples)
+        side_padded = torch.nn.functional.pad(side, (max_delay_samples, pad_right))
+
+        Side = torch.fft.rfft(side_padded, n=fft_size)
+        freqs = torch.fft.rfftfreq(side_padded.shape[-1], 1/self.sample_rate).to(x.device)
         
         phase = -2 * np.pi * freqs * params['delay_ms'].view(-1, 1, 1) / 1000
         phase = unwrap_phase(phase, dim=-1)
         Side = Side * torch.exp(1j * phase).to(Side.dtype)
         
         # Convert back to time domain with width control
-        side = torch.fft.irfft(Side, n=x.shape[-1])
+        side_delayed = torch.fft.irfft(Side, n=fft_size)
+        side_delayed = side_delayed[..., max_delay_samples:max_delay_samples + side.shape[-1]]
         width = params['width'].view(-1, 1, 1)
         
-        x_ms_new = torch.cat([mid, side * width], -2)
-        x_lr = ms_to_lr(x_ms_new)
+        x_ms_new = torch.cat([mid, side_delayed * width], -2)
+        x_lr = ms_to_lr(x_ms_new, mult=1/np.sqrt(2))
         
         return x_lr

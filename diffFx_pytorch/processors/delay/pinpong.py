@@ -119,7 +119,7 @@ class PingPongDelay(ProcessorsBase):
             'mix': EffectParam(min_val=0.0, max_val=1.0)
         }
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None , dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the ping-pong delay.
         
         Args:
@@ -161,10 +161,17 @@ class PingPongDelay(ProcessorsBase):
         b, ch, s = x.shape
         assert ch == 2, "Input must be stereo"
         
-        max_delay_samples = int(torch.max(delay_ms) * self.sample_rate / 1000)
-        x_padded = torch.nn.functional.pad(x, (max_delay_samples, 0))
+        max_delay_samples = max(
+            1,
+            int(torch.max(delay_ms) * self.sample_rate / 1000)
+        )
+        # Calculate FFT size (next power of 2 for efficiency)
+        fft_size = 2 ** int(np.ceil(np.log2(x.shape[-1] + max_delay_samples)))
+        # Pad input signal to FFT size
+        pad_right = fft_size - (x.shape[-1] + max_delay_samples)
+        x_padded = torch.nn.functional.pad(x, (max_delay_samples, pad_right))
         
-        X = torch.fft.rfft(x_padded)
+        X = torch.fft.rfft(x_padded, n=fft_size)
         freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate).to(x.device)
         phase = -2 * np.pi * freqs * delay_ms / 1000
         phase = unwrap_phase(phase, dim=-1)
@@ -183,7 +190,9 @@ class PingPongDelay(ProcessorsBase):
         Y2 = H21 * X[:, 0:1] + H22 * X[:, 1:2]
         
         Y = torch.cat([Y1, Y2], dim=1)
-        y = torch.fft.irfft(Y, n=x_padded.shape[-1])[:, :, max_delay_samples:]
+        # y = torch.fft.irfft(Y, n=x_padded.shape[-1])[:, :, max_delay_samples:]
+        y = torch.fft.irfft(Y, n=fft_size)
+        y = y[..., max_delay_samples:max_delay_samples + x.shape[-1]]
         
         return (1 - mix) * x + mix * y
    

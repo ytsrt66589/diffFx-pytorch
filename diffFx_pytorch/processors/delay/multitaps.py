@@ -87,9 +87,9 @@ class MultiTapsDelay(ProcessorsBase):
             ...     def forward(self, x):
             ...         return self.net(x)
     """
-    def __init__(self, sample_rate, num_taps=4):
+    def __init__(self, sample_rate, param_range=None, num_taps=4):
         self.num_taps = num_taps
-        super().__init__(sample_rate)
+        super().__init__(sample_rate, param_range)
         
     def _register_default_parameters(self):
         """Register parameters for all taps and mix.
@@ -109,7 +109,7 @@ class MultiTapsDelay(ProcessorsBase):
             })
         self.params['mix'] = EffectParam(min_val=0.0, max_val=1.0)
 
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the multi-tap delay.
         
         Args:
@@ -145,10 +145,17 @@ class MultiTapsDelay(ProcessorsBase):
         mix = params['mix'].view(-1, 1, 1)
         
         b, ch, s = x.shape
-        max_delay_samples = int(torch.max(tap_delays_ms) * self.sample_rate / 1000)
-        x_padded = torch.nn.functional.pad(x, (max_delay_samples, 0))
+        max_delay_samples = max(
+            1,
+            int(torch.max(tap_delays_ms) * self.sample_rate / 1000)
+        )
+        # Calculate FFT size (next power of 2 for efficiency)
+        fft_size = 2 ** int(np.ceil(np.log2(x.shape[-1] + max_delay_samples)))
+        # Pad input signal to FFT size
+        pad_right = fft_size - (x.shape[-1] + max_delay_samples)
+        x_padded = torch.nn.functional.pad(x, (max_delay_samples, pad_right))
         
-        X = torch.fft.rfft(x_padded)
+        X = torch.fft.rfft(x_padded, n=fft_size)
         freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate).to(x.device)
         
         y = torch.zeros_like(X)
@@ -158,6 +165,8 @@ class MultiTapsDelay(ProcessorsBase):
             z_n = torch.exp(1j * phase).to(X.dtype)
             y += tap_gains[i].view(-1, 1, 1) * z_n * X
         
-        y = torch.fft.irfft(y, n=x_padded.shape[-1])[:, :, max_delay_samples:]
+        # y = torch.fft.irfft(y, n=x_padded.shape[-1])[:, :, max_delay_samples:]
+        y = torch.fft.irfft(y, n=fft_size)
+        y = y[..., max_delay_samples:max_delay_samples + x.shape[-1]]
         return (1 - mix) * x + mix * y
 

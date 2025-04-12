@@ -1,17 +1,9 @@
 import torch 
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np 
-from typing import Dict, List, Tuple, Union
-
+from typing import Dict, Union
 from enum import Enum
-
 from ..base_utils import check_params
 from ..base import ProcessorsBase, EffectParam
-# from ..filters import BiquadFilter
 from ..core.iir import IIRFilter
-
-# ref: https://github.com/mod-audio/guitarix/blob/master/trunk/src/faust/tonestack.dsp?fbclid=IwAR02TRPhiyVm5d_K0Df9KR8gxzbYcZX80NPvzT3ciCMn4r0V-iUJg8yH0YU
 
 class TonestackPreset(Enum):
     """Collection of component values modeling various guitar amplifier tonestacks.
@@ -287,8 +279,8 @@ class Tonestack(ProcessorsBase):
             >>> norm_params = controller(features)
             >>> output = tonestack(input_audio, norm_params=norm_params)
     """
-    def __init__(self, sample_rate=44100, preset='bassman'):
-        super().__init__(sample_rate)
+    def __init__(self, sample_rate=44100, param_range=None, preset='bassman'):
+        super().__init__(sample_rate, param_range)
         self.filter = IIRFilter(order=3, backend='fsm')  # Third order filter
         self.preset = TonestackPreset[preset.upper()].value
         
@@ -394,8 +386,12 @@ class Tonestack(ProcessorsBase):
         
         return Bs, As
         
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
-                dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(
+        self, 
+        x: torch.Tensor, 
+        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None
+    ) -> torch.Tensor:
         """Process input signal through the tonestack.
         
         Args:

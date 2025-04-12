@@ -1,14 +1,10 @@
 import math
-
 import torch
 import torch.fft
-import torch.nn as nn
-import torch.nn.functional as F
 
 from ..core.iir import IIRFilter
-from ..core.midside import lr_to_ms, ms_to_lr
-from ..core.utils import normalize_impulse, freq_to_normalized
-from typing import Dict, List, Tuple, Union
+from ..core.utils import freq_to_normalized
+from typing import Dict, Union
 from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
 
@@ -18,37 +14,22 @@ HALF_PI = math.pi / 2
 TWOR_SCALE = 1 / math.log(2)
 ALPHA_SCALE = 1 / 2
 
-# ref: https://www.w3.org/TR/audio-eq-cookbook/
 class BiquadFilter(ProcessorsBase):
     """Differentiable implementation of a second-order IIR (biquad) filter.
     
     This processor implements various types of biquad filters based on the Audio EQ Cookbook
     formulas. It supports multiple filter types including lowpass, highpass, bandpass, 
-    bandstop, allpass, peaking, and shelving filters.
-
-    The filter is implemented using the following transfer function:
+    bandstop, allpass, peaking, and shelving filters. The filter is implemented using the 
+    following transfer function:
 
     .. math::
 
         H(z) = \\frac{b_0 + b_1z^{-1} + b_2z^{-2}}{a_0 + a_1z^{-1} + a_2z^{-2}}
 
-    where coefficients are computed based on:
-        - Filter type (LP, HP, BP, etc.)
-        - Normalized frequency (ω₀)
-        - Q factor (bandwidth control)
-        - Gain (for peaking and shelving filters)
-
     Args:
         sample_rate (int): Audio sample rate in Hz. Defaults to 44100.
-        filter_type (str): Type of filter to implement. Must be one of:
-            - 'LP', 'lowpass': Low-pass filter
-            - 'HP', 'highpass': High-pass filter
-            - 'BP', 'bandpass': Band-pass filter
-            - 'BS', 'bandstop', 'notch': Band-stop/notch filter
-            - 'AP', 'allpass': All-pass filter
-            - 'PK', 'peak': Peaking filter
-            - 'LS', 'lowshelf': Low-shelf filter
-            - 'HS', 'highshelf': High-shelf filter
+        param_ranges (Dict[str, Tuple[str, EffectParam]]): Optional parameter definitions to override defaults.
+        filter_type (str): Type of filter to implement (see Filter Types below).
         **kwargs: Additional arguments passed to IIRFilter
 
     Parameters Details:
@@ -63,7 +44,7 @@ class BiquadFilter(ProcessorsBase):
             - Higher values = narrower/sharper response
             
         gain_db: Gain for peak/shelf filters
-            - Range: -24.0 to 24.0 dB
+            - Range: -12.0 to 12.0 dB
             - Only used by peak and shelf types
             - Controls amount of boost/cut
 
@@ -71,49 +52,31 @@ class BiquadFilter(ProcessorsBase):
         Low-pass (LP):
             - Passes frequencies below cutoff
             - -12 dB/octave slope
-            - Q controls resonance at cutoff
             
         High-pass (HP):
             - Passes frequencies above cutoff
             - -12 dB/octave slope
-            - Q controls resonance at cutoff
             
         Band-pass (BP):
             - Passes frequencies around center
-            - Q controls bandwidth
             - Constant skirt gain
             
         Band-stop (BS):
             - Rejects frequencies around center
-            - Q controls bandwidth
             - Also known as notch filter
             
         All-pass (AP):
             - Maintains magnitude response
             - Adjusts phase response
-            - Q controls transition
             
         Peak (PK):
             - Boosts/cuts around center
-            - Q controls bandwidth
-            - Gain controls boost/cut amount
             
         Low-shelf (LS):
             - Boosts/cuts below frequency
-            - Q controls transition slope
-            - Gain controls shelf level
             
         High-shelf (HS):
             - Boosts/cuts above frequency
-            - Q controls transition slope
-            - Gain controls shelf level
-
-    Note:
-        - Based on Audio EQ Cookbook formulas
-        - Uses frequency domain implementation
-        - Automatically handles coefficient computation
-        - Preserves filter stability
-        - Efficient for real-time processing
 
     Examples:
         Basic DSP Usage:
@@ -150,24 +113,24 @@ class BiquadFilter(ProcessorsBase):
         Sets up three parameters:
             - frequency: Center/cutoff in Hz (20.0 to 20000.0)
             - q_factor: Quality factor (0.1 to 10.0)
-            - gain_db: Gain in dB (-24.0 to 24.0)
+            - gain_db: Gain in dB (-12.0 to 12.0)
         """
         self.params = {
             'frequency': EffectParam(min_val=20.0, max_val=20000.0),  # Hz
             'q_factor': EffectParam(min_val=0.1, max_val=10.0),  # standard Q
-            'gain_db': EffectParam(min_val=-24.0, max_val=24.0),  # for peak/shelf
+            'gain_db': EffectParam(min_val=-12.0, max_val=12.0),  # for peak/shelf
         }
         
-    def __init__(self, sample_rate=44100, filter_type='LP', **kwargs):
-        super().__init__(sample_rate)
+    def __init__(self, sample_rate=44100, param_range=None, filter_type='LP', **kwargs):
+        super().__init__(sample_rate, param_range)
         self.biquad = IIRFilter(order=2, **kwargs)
         self.filter_type = self._map_filter_type_2_num(filter_type)
-    
+        
     def _map_filter_type_2_num(self, filter_type: str) -> int:
         """Map filter type string to internal numeric representation.
-        
+
         Args:
-            filter_type (str): Filter type identifier
+            filter_type (str): Filter type identifier (see class docstring for supported types)
             
         Returns:
             int: Internal filter type number
@@ -196,7 +159,12 @@ class BiquadFilter(ProcessorsBase):
             
         return filter_map[filter_type]
         
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(
+        self, 
+        x: torch.Tensor, 
+        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ):
         """Process input signal through the biquad filter.
         
         Args:
@@ -207,12 +175,6 @@ class BiquadFilter(ProcessorsBase):
                 
         Returns:
             torch.Tensor: Filtered audio tensor of same shape as input
-            
-        Processing steps:
-            1. Parameter validation and mapping
-            2. Convert frequency to normalized frequency
-            3. Calculate filter coefficients based on type
-            4. Apply biquad filter
         """
         check_params(norm_params, dsp_params)
         

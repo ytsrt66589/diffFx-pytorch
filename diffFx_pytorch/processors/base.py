@@ -9,7 +9,6 @@ class EffectParam:
     min_val: float
     max_val: float
     default: float = None
-    
 
 class ProcessorsBase(nn.Module):
     """Base class for differentiable audio effect processors.
@@ -166,8 +165,6 @@ class ProcessorsBase(nn.Module):
             
         return batched_params
     
-    
-    
     def forward(self, x: torch.Tensor, norm_params: Union[torch.Tensor, None] = None, dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None) -> torch.Tensor:
         """Process input with either normalized or DSP parameters.
         
@@ -248,5 +245,4 @@ class ProcessorsBase(nn.Module):
             Number of registered parameters
         """
         return len(self.params)
-    
     

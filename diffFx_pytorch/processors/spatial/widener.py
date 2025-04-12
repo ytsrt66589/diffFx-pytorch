@@ -1,11 +1,6 @@
 import torch 
-import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np 
-from typing import Dict, List, Tuple, Union
-
-from enum import Enum
-
+from typing import Dict, Union
 from ..base_utils import check_params 
 from ..base import ProcessorsBase, EffectParam
 from ..core.midside import * 
@@ -108,7 +103,7 @@ class StereoWidener(ProcessorsBase):
             'width': EffectParam(min_val=0.0, max_val=1.0),
         } 
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the stereo widener.
         
         Args:
@@ -148,7 +143,7 @@ class StereoWidener(ProcessorsBase):
         bs, chs, seq_len = x.size()
         assert chs == 2, "Input tensor must have shape (bs, 2, seq_len)"
         
-        x_ms = lr_to_ms(x, mult=np.sqrt(2)) 
+        x_ms = lr_to_ms(x, mult=1/np.sqrt(2)) 
         
         # Split M/S signals
         m, s = torch.split(x_ms, (1, 1), -2)
@@ -158,11 +153,11 @@ class StereoWidener(ProcessorsBase):
         # width = 0.5 -> side * 1 = original stereo
         # width = 1.0 -> side * 2 = wider stereo
         width = width.view(-1, 1, 1)
-        mid = m * (2 * (1 - width))
-        side = s * (2 * width)
+        mid = m * (2 * (1 - width)) 
+        side = s * (2 * width) 
         
         # Recombine M/S
         x_ms = torch.cat([mid, side], -2)
-        x_lr = ms_to_lr(x_ms)
+        x_lr = ms_to_lr(x_ms, mult=1/np.sqrt(2))
         
         return x_lr

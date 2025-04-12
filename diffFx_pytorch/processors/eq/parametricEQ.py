@@ -1,10 +1,5 @@
 import torch 
-import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np 
-from typing import Dict, List, Tuple, Union
-
-from enum import Enum
+from typing import Dict, Union
 
 from ..base_utils import check_params 
 from ..base import ProcessorsBase, EffectParam
@@ -45,12 +40,13 @@ class ParametricEqualizer(ProcessorsBase):
 
     where coefficients are computed based on:
         - Filter type (peak, low shelf, or high shelf)
-        - Center/corner frequency
+        - Center frequency
         - Q factor (bandwidth/slope)
         - Gain setting
 
     Args:
         sample_rate (int): Audio sample rate in Hz
+        param_range (Dict[str, EffectParam], optional): Parameter ranges.
         num_peak_filters (int): Number of independent peak filters. Defaults to 3.
 
     Attributes:
@@ -128,9 +124,9 @@ class ParametricEqualizer(ProcessorsBase):
             >>> norm_params = controller(features)
             >>> output = eq(input_audio, norm_params=norm_params)
     """
-    def __init__(self, sample_rate, num_peak_filters=3):
+    def __init__(self, sample_rate, param_range = None, num_peak_filters=3):
         self.num_peak_filters = num_peak_filters
-        super().__init__(sample_rate)
+        super().__init__(sample_rate, param_range)
 
         # Create peak filters
         self.peak_filters = [
@@ -182,7 +178,7 @@ class ParametricEqualizer(ProcessorsBase):
                 f'{peak_name}_q_factor': EffectParam(min_val=0.1, max_val=10.0),
             })
             
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params:Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the parametric equalizer.
 
         Args:

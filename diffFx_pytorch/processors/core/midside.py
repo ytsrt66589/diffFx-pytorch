@@ -1,10 +1,12 @@
 import torch
 
 
-def ms_to_lr(x):
+def ms_to_lr(x, mult=0.5):
     mid, side = torch.split(x, (1, 1), -2)
-    left, right = mid + side, mid - side
+    left, right = (mid + side), (mid - side)
     x = torch.cat([left, right], -2)
+    if mult is not None:
+        x = x * mult
     return x
 
 

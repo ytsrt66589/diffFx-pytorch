@@ -125,24 +125,7 @@ class IIRFilter(nn.Module):
             self.process = self._process_ssm
         else:
             raise ValueError(f"Unsupported backend: {backend}")
-        # match backend:
-        #     case "fsm":
-        #         delays = IIRFilter.delay(torch.arange(order + 1), fsm_fir_len)
-        #         self.register_buffer("delays", delays)
-        #         self.conv = FIRConvolution(
-        #             mode="causal",
-        #             flashfftconv=flashfftconv,
-        #             max_input_len=fsm_max_input_len,
-        #         )
-        #         if fsm_regularization:
-        #             assert False
-        #         self.process = self._process_fsm
-        #     case "lfilter":
-        #         self.process = self._process_lfilter
-        #     case "ssm":
-        #         self.process = self._process_ssm
-        #     case _:
-        #         raise ValueError(f"Unsupported backend: {backend}")
+        
 
     def forward(self, input_signal, Bs, As):
         r"""
