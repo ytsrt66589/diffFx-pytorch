@@ -97,3 +97,28 @@ def test_dsp_mono_params(proc, dsp_params, pann=False):
     print('> ====== TEST MONO DSP PARAMS PASS ====== < ')
 
 
+def test_ms_send_stereo_params(proc, dsp_params, pann=False):
+    print('> ====== START TEST MS SEND STEREO PARAMS ====== < ')
+    proc = proc.to(DEVICE)
+    
+    test_signal = torch.randn(BATCH_SIZE, STEREO_CHANNEL, NUM_SAMPLES).to(DEVICE)
+    y = proc(test_signal, 0.5, None, None, dsp_params, dsp_params)
+    assert y.shape == test_signal.shape
+    print('> ====== TEST MS SEND STEREO PARAMS PASS ====== < ')
+
+def test_ms_send_grad_batch(proc, pann=False):
+    print('> ====== START TEST MS SEND GRAD BATCH ====== < ')
+    dummy_condition = torch.randn(BATCH_SIZE, 1).to(DEVICE)
+    proc = proc.to(DEVICE)
+    controller = nn.Sequential(
+        nn.Linear(1, 8),
+        nn.LeakyReLU(0.2),
+        nn.Linear(8, proc.count_num_parameters())
+    ).to(DEVICE)
+    test_signal = torch.randn(BATCH_SIZE, STEREO_CHANNEL, NUM_SAMPLES).to(DEVICE)
+    y = proc(test_signal, 0.5, controller(dummy_condition), controller(dummy_condition), None, None)
+    loss = y.mean()
+    loss.backward()
+
+    check_valid(y, test_signal, pann=pann)
+    print('> ====== TEST MS SEND GRAD BATCH PASS ====== < ')

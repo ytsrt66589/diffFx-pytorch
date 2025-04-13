@@ -94,11 +94,11 @@ output = mb_comp(input_audio, norm_params=norm_params)
   - [x] Multi-band Compressor
   - [x] Limiter
   - [x] Multi-band Limiter
-  - [-] Expander
-  - [-] Multi-band Expander
-  - [-] Noise Gate
-  - [-] Multi-band Noise Gate
-  - [x] Transient Shaper (how to support stereo?)
+  - [x] Expander
+  - [x] Multi-band Expander
+  - [x] Noise Gate
+  - [x] Multi-band Noise Gate
+  - [x] Transient Shaper 
   - [] Multi-band Transient Shaper
 - **Delay**
   - [x] Basic Delay 
