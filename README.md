@@ -2,7 +2,8 @@
 
 A PyTorch-based library for differentiable audio effects processing, enabling deep learning integration with professional audio processing algorithms.
 
-Disclaimer: Current code is not fully test yet, be careful to use !!!!!!!!!!! 
+
+Disclaimer: This is my personal practice project to understand audio effect processors and is designed for deep learning frameworks. Several excellent libraries already exist, such as [GRAFX](https://github.com/sh-lee97/grafx), [dasp-pytorch](https://github.com/csteinmetz1/dasp-pytorch), [NablAFx](https://arxiv.org/abs/2502.11668), and [torchcomp](https://github.com/DiffAPF/torchcomp). Some of my code is inspired by these libraries, and I'm grateful to their developers for implementing several fundamental processors. My core extension will be developing human-interpretable effect processors, where the parameters of each processor can be easily understood by humans. Current code is not fully test yet, be careful to use !!!!!!!!!!! 
 
 [Doc](https://difffx-pytorch.readthedocs.io/en/latest/)
 ## Overview
@@ -29,7 +30,7 @@ pip install -e .
 
 ```python
 import torch
-from difffx.processors.dynamics import Compressor
+from diffFx_pytorch.processors.dynamics import Compressor
 
 # Create a compressor
 compressor = Compressor(sample_rate=44100)
@@ -52,7 +53,7 @@ The library supports deep learning integration through normalized parameters:
 ```python
 import torch
 import torch.nn as nn
-from difffx.processors import MultiBandCompressor
+from diffFx_pytorch.processors.dynamics import MultiBandCompressor
 
 # Create a neural network controller
 class CompressorNet(nn.Module):

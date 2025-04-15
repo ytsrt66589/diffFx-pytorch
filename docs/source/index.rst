@@ -1,12 +1,17 @@
 Welcome to diffFx-pytorch
 ========================
 
-A comprehensive PyTorch-based library for differentiable audio effects processing, offering a wide range of professional audio processors that seamlessly integrate with deep learning architectures.
+A PyTorch-based library for differentiable audio effects processing, enabling deep learning integration with professional audio processing algorithms.
+
+Disclaimer
+----------
+
+This is my personal practice project to understand audio effect processors and is designed for deep learning frameworks. Several excellent libraries already exist, such as `GRAFX <https://github.com/sh-lee97/grafx>`_, `dasp-pytorch <https://github.com/csteinmetz1/dasp-pytorch>`_, `NablAFx <https://arxiv.org/abs/2502.11668>`_, and `torchcomp <https://github.com/DiffAPF/torchcomp>`_. Some of my code is inspired by these libraries, and I'm grateful to their developers for implementing several fundamental processors. My core extension will be developing human-interpretable effect processors, where the parameters of each processor can be easily understood by humans. Current code is not fully tested yet, be careful to use!
 
 Overview
 --------
 
-diffFx-pytorch implements a diverse collection of industry-standard audio effects as differentiable processors in PyTorch. The library makes professional audio processing algorithms end-to-end differentiable while maintaining pristine audio quality, enabling novel applications in neural audio processing and automatic music production.
+**diffFx-pytorch** provides a collection of differentiable audio effects processors that can be integrated into neural network architectures. The library implements common audio processing algorithms with PyTorch, making them end-to-end differentiable while maintaining professional audio quality.
 
 Why diffFx-pytorch
 -----------------
@@ -19,33 +24,41 @@ Why diffFx-pytorch
 
 * Professional-grade audio quality suitable for production use
 
-Key Features
------------
+Features
+--------
 
-Audio Processors
-~~~~~~~~~~~~~~~
-* **Gain**
+Implemented Effects 🎛️
+~~~~~~~~~~~~~~~~~~~~~
+
+* **Utilities**
+    * Send
+    * Mid/Side Processing
+
+* **Linear Gain**
     * Gain
+    * Fade in/out (coming soon)
 
-* **Equalization**
+* **EQ**
     * ToneStack
     * Graphic Equalizer
     * Parametric Equalizer
+    * Dynamic EQ (coming soon)
 
 * **Dynamics**
     * Compressor
     * Multi-band Compressor
     * Limiter
     * Multi-band Limiter
-    * Expander 
+    * Expander
     * Multi-band Expander
     * Noise Gate
     * Multi-band Noise Gate
-    * Transient Shaper 
+    * Transient Shaper (coming soon)
+    * Multi-band Transient Shaper (coming soon)
 
 * **Delay**
     * Basic Delay
-    * Feedback Delay
+    * Feedback Basic Delay
     * Slapback Delay
     * Ping-pong Delay
     * Multi-taps Delay
@@ -53,17 +66,17 @@ Audio Processors
 * **Spatial**
     * Stereo Panning
     * Stereo Widener
-    * Stereo Imager
-    * Stereo Enhancer
+    * Stereo Imager (Multi-band Widener)
+    * Stereo Enhancer (Haas Effect)
 
 * **Modulation**
-    * Chorus 
+    * Chorus
     * Multi-voice Chorus
     * Stereo Chorus
     * Flanger
-    * Feedback Flanger 
+    * Feedback Flanger
     * Stereo Flanger
-    * Phaser 
+    * Phaser
     * AutoWah (coming soon)
     * Tremelo (coming soon)
     * Ring Modulation (coming soon)
@@ -71,40 +84,12 @@ Audio Processors
 * **Reverb**
     * ConvIR Reverb (coming soon)
     * Noise Shape Reverb (coming soon)
-    * Feedback Delay Network Reverb (coming soon)
+    * Feedback Delay Network (FDN) (coming soon)
 
-* **Distortion**
-    * TanH/Hard/Soft/Double-Soft/Cubic/Exponential/ArcTan/Rectifier 
-    * Bit Crusher 
-    * Exciter (coming soon)
-
-Implementation Features
-~~~~~~~~~~~~~~~~~~~~~
-
-* PyTorch-native operations
-* GPU acceleration support
-* Efficient batch processing
-* Automatic differentiation
-
-Applications
------------
-
-Data Augmentation
-~~~~~~~~~~~~~~~~~
-
-* Effect-wise data augmentation
-* Audio Transformation 
-
-Research Applications
-~~~~~~~~~~~~~~~~~~~
-
-* Neural audio effect modeling
-* Style transfer
-* Automatic music production
-* Intelligent mixing and mastering
-* Fx Parameter optimization
-
-
+* **Distortion (Nonlinear)**
+    * TanH
+    * Hard/Soft/Double-Soft/Cubic/ArcTanh/Rectifier/Exponential Clipper
+    * Bit Crusher
 
 Installation
 -----------
@@ -113,18 +98,29 @@ Installation
 
     pip install diffFx-pytorch
 
+or
+
+.. code-block:: bash
+
+    git clone https://github.com/ytsrt66589/diffFx-pytorch.git
+    cd diffFx-pytorch
+    pip install -e .
+
 Quick Start
 ----------
+
+Basic Usage
+~~~~~~~~~~
 
 .. code-block:: python
 
     import torch
-    from difffx.processors import Compressor
+    from diffFx_pytorch.processors.dynamics import Compressor
 
     # Create a compressor
     compressor = Compressor(sample_rate=44100)
 
-    # Process audio with DSP parameters
+    # Process audio with direct DSP parameters
     output = compressor(input_audio, dsp_params={
         'threshold_db': -20.0,
         'ratio': 4.0,
@@ -134,13 +130,37 @@ Quick Start
         'makeup_db': 0.0
     })
 
-Neural Network Integration
-------------------------
+Parameter Range Customization
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can customize the parameter ranges of each processor:
 
 .. code-block:: python
 
+    from diffFx_pytorch.processors.dynamics import Compressor 
+    from diffFx_pytorch.processors import EffectParam
+
+    # Create a compressor with custom parameter ranges
+    compressor = Compressor(
+        sample_rate=44100,
+        param_range={
+            'threshold_db': EffectParam(min_val=-60.0, max_val=0.0),
+            'ratio': EffectParam(min_val=1.0, max_val=20.0),
+            'knee_db': EffectParam(min_val=0.0, max_val=12.0),
+            'attack_ms': EffectParam(min_val=0.1, max_val=100.0),
+            'release_ms': EffectParam(min_val=10.0, max_val=1000.0),
+            'makeup_db': EffectParam(min_val=-12.0, max_val=12.0)
+        }
+    )
+
+Neural Network Integration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    import torch
     import torch.nn as nn
-    from difffx.processors import MultiBandCompressor
+    from diffFx_pytorch.processors.dynamics import MultiBandCompressor
 
     # Create a neural network controller
     class CompressorNet(nn.Module):
@@ -161,10 +181,31 @@ Neural Network Integration
     num_params = mb_comp.count_num_parameters()
     controller = CompressorNet(input_size=16, num_params=num_params)
 
-    # Process with predicted parameters
+    # Process audio with predicted parameters
     features = torch.randn(batch_size, 16)
     norm_params = controller(features)
     output = mb_comp(input_audio, norm_params=norm_params)
+
+Parameter Conversion
+~~~~~~~~~~~~~~~~~~
+
+Each processor provides methods to convert between DSP and normalized parameters:
+
+.. code-block:: python
+
+    # Convert DSP parameters to normalized
+    norm_params = compressor.demap_parameters(dsp_params)
+    
+    # Convert normalized parameters to DSP
+    dsp_params = compressor.map_parameters(norm_params)
+
+Examples
+--------
+
+Understanding the sound characteristic of each processor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Check `examples/processors/notebook <examples/processors/notebook>`_ to see how each processor affect sound.
 
 Citation
 --------
@@ -175,15 +216,15 @@ If you use diffFx-pytorch in your research, please cite:
 
     @software{difffx_pytorch,
         title = {diffFx-pytorch: Differentiable Audio Effects Processing in PyTorch},
-        author = {Your Name},
-        year = {2024},
-        url = {https://github.com/yourusername/difffx-pytorch}
+        author = {Yen-Tung Yeh},
+        year = {2025},
+        url = {https://github.com/ytsrt66589/difffx-pytorch}
     }
 
 License
 -------
 
-This project is licensed under the MIT License. See the LICENSE file for details.
+This project is licensed under the Apache License - see the `LICENSE <LICENSE>`_ file for details.
 
 .. toctree::
    :maxdepth: 2
