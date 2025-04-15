@@ -14,3 +14,5 @@ numpy
 scipy 
 torchlpc 
 torchcomp
+numba-cuda==0.4.0
+pynvjitlink-cu12

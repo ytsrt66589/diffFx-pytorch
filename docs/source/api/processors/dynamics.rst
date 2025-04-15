@@ -45,6 +45,46 @@ Multi-band Limiter
 
    A multi-band limiter that applies independent limiting to different frequency bands.
 
+Expander 
+--------
+
+.. autoclass:: diffFx_pytorch.processors.dynamics.Expander
+   :members:
+   :undoc-members:
+   :show-inheritance:   
+
+   A feedforward expander with three knee types (hard, quadratic, exponential) 
+   and two smoothing options (ballistics, IIR). 
+
+Multi-band Expander
+-------------------
+
+.. autoclass:: diffFx_pytorch.processors.dynamics.MultiBandExpander
+   :members:
+   :undoc-members:
+   :show-inheritance:  
+
+   A multi-band expander that applies independent expansion to different frequency bands.
+
+Noise Gate
+----------
+
+.. autoclass:: diffFx_pytorch.processors.dynamics.NoiseGate
+   :members:
+   :undoc-members:
+   :show-inheritance:   
+
+   A noise gate that reduces the volume of quiet audio signals.   
+
+Multi-band Noise Gate
+---------------------
+
+.. autoclass:: diffFx_pytorch.processors.dynamics.MultiBandNoiseGate
+   :members:
+   :undoc-members:
+   :show-inheritance:   
+
+   A multi-band noise gate that applies independent noise gating to different frequency bands.
 
 Transient Shaper
 ---------------

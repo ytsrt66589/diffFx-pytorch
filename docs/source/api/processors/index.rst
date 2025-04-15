@@ -4,6 +4,7 @@ Processors
 .. toctree::
    :maxdepth: 2
 
+   utilities
    gain
    eq
    spatial
@@ -12,4 +13,5 @@ Processors
    distortion
    dynamics
    modulation
+
    
