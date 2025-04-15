@@ -148,13 +148,15 @@ class Flanger(ProcessorsBase):
             'mix': EffectParam(min_val=0.0, max_val=1.0)
         }
         
-    def __init__(self, sample_rate=44100):
-        super().__init__()
+    def __init__(self, sample_rate=44100, param_range=None):
+        super().__init__(sample_rate, param_range)
         self.sample_rate = sample_rate
         self._register_default_parameters()
         
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
-                dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(self, 
+        x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ) -> torch.Tensor:
         """Process input signal through the flanger effect.
     
         Args:
@@ -195,7 +197,7 @@ class Flanger(ProcessorsBase):
         mix = params['mix'].view(-1, 1, 1)              # (batch, 1, 1)
         
         # Calculate maximum delay in samples
-        max_delay_samples = int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        max_delay_samples = max(1, int(torch.max(delay_ms) * self.sample_rate / 1000.0))
         delay_center = delay_ms / 1000.0 * self.sample_rate # samples 
         
         # Generate time base for LFO
@@ -355,13 +357,15 @@ class StereoFlanger(ProcessorsBase):
             'mix': EffectParam(min_val=0.0, max_val=1.0)
         }
         
-    def __init__(self, sample_rate=44100):
-        super().__init__()
+    def __init__(self, sample_rate=44100, param_range=None):
+        super().__init__(sample_rate, param_range)
         self.sample_rate = sample_rate
         self._register_default_parameters()
         
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
-                dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(self, 
+        x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ) -> torch.Tensor:
         """Process input signal through the stereo flanger effect.
    
         Args:
@@ -408,7 +412,7 @@ class StereoFlanger(ProcessorsBase):
         mix = params['mix'].view(-1, 1, 1)              # (batch, 1, 1)
         
         # Calculate maximum delay in samples
-        max_delay_samples = int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        max_delay_samples = max(1, int(torch.max(delay_ms) * self.sample_rate / 1000.0))
         delay_center = delay_ms / 1000.0 * self.sample_rate # samples 
         
         # Generate time base for LFO
@@ -576,13 +580,15 @@ class FeedbackFlanger(ProcessorsBase):
             'mix': EffectParam(min_val=0.0, max_val=1.0)
         }
         
-    def __init__(self, sample_rate=44100):
-        super().__init__()
+    def __init__(self, sample_rate=44100, param_range=None):
+        super().__init__(sample_rate, param_range)
         self.sample_rate = sample_rate
         self._register_default_parameters()
         
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
-                dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(self, 
+        x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ) -> torch.Tensor:
         """Process input signal through the feedback flanger effect.
    
         Args:
@@ -626,7 +632,7 @@ class FeedbackFlanger(ProcessorsBase):
         feedback = params['feedback'].view(-1, 1, 1)
         
         # Calculate maximum delay in samples
-        max_delay_samples = int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        max_delay_samples = max(1, int(torch.max(delay_ms) * self.sample_rate / 1000.0))
         delay_center = delay_ms / 1000.0 * self.sample_rate # samples 
         
         # Generate time base for LFO

@@ -7,7 +7,7 @@ Disclaimer: Current code is not fully test yet, be careful to use !!!!!!!!!!!
 [Doc](https://difffx-pytorch.readthedocs.io/en/latest/)
 ## Overview
 
-diffFx-pytorch provides a collection of differentiable audio effects processors that can be seamlessly integrated into neural network architectures. The library implements common audio processing algorithms with PyTorch, making them end-to-end differentiable while maintaining professional audio quality.
+**diffFx-pytorch** provides a collection of differentiable audio effects processors that can be  integrated into neural network architectures. The library implements common audio processing algorithms with PyTorch, making them end-to-end differentiable while maintaining professional audio quality.
 
 
 ## Installation
@@ -79,8 +79,17 @@ norm_params = controller(features)
 output = mb_comp(input_audio, norm_params=norm_params)
 ```
 
+## Examples 
+
+### Understanding the sound characteristic of each processor
+Check [examples/processors/notebook](examples/processors/notebook) to see how each processor affect sound. 
+
+
 ## Features
 ### Implemented Effects 🎛️ 
+- **Utilities**
+  - [x] Send 
+  - [x] Mid/Side Processing 
 - **Linear Gain**
   - [x] Gain 
   - [] Fade in/out
@@ -98,7 +107,7 @@ output = mb_comp(input_audio, norm_params=norm_params)
   - [x] Multi-band Expander
   - [x] Noise Gate
   - [x] Multi-band Noise Gate
-  - [x] Transient Shaper 
+  - [] Transient Shaper 
   - [] Multi-band Transient Shaper
 - **Delay**
   - [x] Basic Delay 
@@ -109,7 +118,7 @@ output = mb_comp(input_audio, norm_params=norm_params)
 - **Spatial**
   - [x] Stereo Panning
   - [x] Stereo Widener
-  - [x] Stereo Imager
+  - [x] Stereo Imager (Multi-band Widener)
   - [x] Stereo Enhancer (Haas Effect)
 - **Modulation**
   - [x] Chorus
@@ -130,7 +139,7 @@ output = mb_comp(input_audio, norm_params=norm_params)
   - [x] TanH
   - [x] Hard/Soft/Double-Soft/Cubic/ArcTanh/Rectifier/Exponential Clipper
   - [x] Bit Crusher 
-  - [] Exciter 
+
 
 
 ## Contributing

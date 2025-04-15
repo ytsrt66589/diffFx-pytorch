@@ -166,74 +166,72 @@ class Tonestack(ProcessorsBase):
     providing control over bass, middle, and treble frequencies. The implementation is based on
     modeling the analog circuit components and their interactions using a third-order IIR filter.
 
-    The tonestack provides a collection of presets modeling famous guitar amplifier circuits including
-    Fender, Marshall, Vox, and other manufacturers. Each preset defines specific component values
-    that determine the characteristic sound of that amplifier model.
-
-    Processing Chain:
-        1. Parameter Mapping: Convert normalized controls to circuit-appropriate ranges
-        2. Coefficient Calculation: Compute analog filter coefficients based on component values
-        3. Bilinear Transform: Convert analog coefficients to digital domain
-        4. Filtering: Apply 3rd order IIR filter to the signal
-
-    The tonestack implements a transfer function based on the following analog circuit topology:
+    The transfer function is based on the following analog circuit topology:
 
     .. math::
 
-        H(s) = \\frac{b_1s + b_2s^2 + b_3s^3}{a_0 + a_1s + a_2s^2 + a_3s^3}
+        H(s) = \\frac{b_0 + b_1s + b_2s^2 + b_3s^3}{1 + a_1s + a_2s^2 + a_3s^3}
 
-    where coefficients b1-b3 and a0-a3 are functions of:
+    where coefficients b0-b3 and a1-a3 are functions of:
         - Component values (R1-R4, C1-C3) from the chosen preset
         - Control positions (bass, mid, treble)
-
+        - The coefficients are calculated using circuit analysis equations
+        - The bilinear transform is then applied to convert to digital domain
+    
     Args:
         sample_rate (int): Audio sample rate in Hz. Defaults to 44100.
-        preset (str): Amplifier model preset to use. 
-            Must be one of the predefined models (e.g., "bassman", "jcm800", "ac30").
-            Defaults to "bassman".
-
-    Attributes:
-        filter (IIRFilter): Third order IIR filter implementation
-        preset (dict): Current amplifier model component values
+        preset (str): Amplifier model preset to use. Must be one of the following:
+            
+            Fender Family:
+                - BASSMAN: '59 Bassman 5F6-A
+                - MESA: Mesa Boogie Mark
+                - TWIN: '69 Twin Reverb AA270
+                - PRINCETON: '64 Princeton AA1164
+                - FENDER_BLUES: Fender Blues Junior
+                - FENDER_DEFAULT: Fender Default
+                - FENDER_DEVILLE: Fender Hot Rod Deville
+                
+            Marshall Family:
+                - JCM800: '59/81 JCM-800 Lead 100 2203
+                - JCM2000: '81 2000 Lead
+                - JTM45: JTM 45
+                - MLEAD: '67 Major Lead 200
+                - M2199: M2199 30W solid state
+                
+            Vox Family:
+                - AC30: '59/86 AC-30
+                - AC15: VOX AC-15
+                
+            Other Manufacturers:
+                - SOLDANO: Soldano SLO 100
+                - SOVTEK: MIG 100 H
+                - PEAVEY: Peavey C20
+                - IBANEZ: Ibanez GX20
+                - ROLAND: Roland Cube 60
+                - AMPEG: VL 501
+                - AMPEG_REV: Ampeg Reverbrocket
+                - BOGNER: Triple Giant Preamp
+                - GROOVE: Trio Preamp
+                - CRUNCH: Hughes&Kettner
+                - GIBSON: GS12 Reverbrocket
+                - ENGL: Engl
 
     Parameters Details:
         bass: Low frequency control
+            - Range: 0.0 to 1.0
             - Higher values boost low frequencies
         mid: Middle frequency control
+            - Range: 0.0 to 1.0
             - Controls presence of middle frequencies
         treble: High frequency control
+            - Range: 0.0 to 1.0
             - Higher values boost high frequencies
 
     Note:
-        The processor supports the following parameter ranges:
-            - bass: Bass control (0 to 1)
-            - mid: Middle control (0 to 1)
-            - treble: Treble control (0 to 1)
+        The processor supports a collection of presets modeling famous guitar amplifier circuits
+        including Fender, Marshall, Vox, and other manufacturers. Each preset defines specific
+        component values that determine the characteristic sound of that amplifier model.
 
-    Available Presets:
-        Fender Models:
-            - bassman: '59 Bassman 5F6-A
-            - mesa: Mesa Boogie Mark
-            - twin: '69 Twin Reverb AA270
-            - princeton: '64 Princeton AA1164
-            
-        Marshall Models:
-            - jcm800: '59/81 JCM-800 Lead 100 2203
-            - jcm2000: '81 2000 Lead
-            - jtm45: JTM 45
-            - mlead: '67 Major Lead 200
-            
-        Vox Models:
-            - ac30: '59/86 AC-30
-            - ac15: VOX AC-15
-            
-        Other Manufacturers:
-            - soldano: Soldano SLO 100
-            - sovtek: MIG 100 H
-            - peavey: Peavey C20
-            - ibanez: Ibanez GX20
-            - roland: Roland Cube 60
-            
     Warning:
         When using with neural networks:
             - norm_params must be in range [0, 1]
@@ -398,9 +396,9 @@ class Tonestack(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
-                - 'bass': Low frequency control (0 to 1)
-                - 'mid': Mid frequency control (0 to 1)
-                - 'treble': High frequency control (0 to 1)
+                    - 'bass': Low frequency control (0 to 1)
+                    - 'mid': Mid frequency control (0 to 1)
+                    - 'treble': High frequency control (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
                 Can specify tone controls as:

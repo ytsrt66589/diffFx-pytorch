@@ -27,18 +27,8 @@ class GraphicEqualizer(ProcessorsBase):
     supports different frequency spacing schemes including ISO standard frequencies, 
     octave spacing, and third-octave spacing.
 
-    The graphic equalizer uses a constant-Q design where each band maintains the same
-    relative bandwidth across frequencies, providing consistent tonal shaping capabilities
-    across the spectrum.
-
-    Processing Chain:
-        1. Input Signal Splitting: Signal is processed through parallel peak filters
-        2. Band Processing: Each frequency band applies gain independently
-        3. Band Summation: Outputs from all bands are summed and normalized
-        4. Output: Final equalized signal
-
     The equalizer uses second-order IIR peak filters for each band with transfer function:
-
+    
     .. math::
 
         H(z) = \\frac{b_0 + b_1z^{-1} + b_2z^{-2}}{1 + a_1z^{-1} + a_2z^{-2}}
@@ -53,24 +43,24 @@ class GraphicEqualizer(ProcessorsBase):
         num_bands (int): Number of frequency bands. Defaults to 10.
         q_factors (float): Q factor for band filters. Controls bandwidth. Defaults to None.
         eq_type (str): Frequency spacing scheme. Must be one of:
-            - 'iso': ISO standard frequencies
+            - 'iso': ISO standard frequencies (31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000 Hz)
             - 'octave': Octave-spaced bands
             - 'third_octave': Third-octave spaced bands
             Defaults to 'iso'.
 
-    Attributes:
-        band_filters (nn.ModuleList): List of peak filters for each band
-        fixed_frequencies (list): Center frequencies for each band
-        band_q (float): Q factor used for all bands
-
     Parameters Details:
         band_X_gain_db: Gain for band X (where X is 1 to num_bands)
+            - Range: -12.0 to 12.0 dB
             - Controls gain at that frequency band
-            - Range: -12 dB to +12 dB
+            - Positive values boost, negative values cut
 
-    ISO Standard Frequencies:
-        When using 'iso' type, the following center frequencies are used:
-        31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000 Hz
+    Note:
+        The processor supports three types of frequency spacing:
+            - ISO: Standard audio frequencies
+            - Octave: Logarithmically spaced bands, one per octave
+            - Third-octave: Logarithmically spaced bands, three per octave
+        Each band uses a constant-Q design where the relative bandwidth remains
+        consistent across frequencies.
 
     Warning:
         When using with neural networks:
@@ -211,18 +201,15 @@ class GraphicEqualizer(ProcessorsBase):
             'q_factor': q
         }
     
-    def process(self, 
-        x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
-        dsp_params: Union[Dict[str, torch.Tensor], None] = None
-    ) -> torch.Tensor:
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the graphic equalizer.
 
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-                Must contain keys 'band_X_gain_db' for X in range(1, num_bands+1)
+                Dictionary with keys 'band_X_gain_db' for X in range(1, num_bands+1)
                 Each value should be a tensor of shape (batch_size,)
+                Values will be mapped to -12.0 to 12.0 dB
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
                 Can specify band gains as:
                 - float/int: Single value applied to entire batch

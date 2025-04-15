@@ -129,10 +129,8 @@ class StereoEnhancer(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
-                - 'side_delay': Delay time for side signal (0 to 1)
+                - 'delay_ms': Delay time for side signal (0 to 1)
                 - 'width': Stereo width enhancement (0 to 1)
-                - 'high_pass': High-pass filter cutoff (0 to 1)
-                - 'mix': Wet/dry balance (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
                 Can specify enhancer parameters as:

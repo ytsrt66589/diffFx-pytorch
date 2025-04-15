@@ -7,31 +7,25 @@ from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
 from ..core.phase import unwrap_phase
 
-
-
-# (time domain shift = freq domain phase shift)
-# padding, unwrap 
-# padding for solving aliasing 
-# unwraping for solving phase discontinuity 
-# ref: https://ccrma.stanford.edu/~jos/fp3/Phase_Unwrapping.html
-
 # Basic Delay 
 class BasicDelay(ProcessorsBase):
     """Differentiable implementation of a single-tap delay line.
-    
-    The implementation is based on: 
-    
-    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
-            Audio effects: theory, implementation and application. CRC Press, 2014.
     
     This processor implements a basic digital delay line using frequency-domain processing
     for precise, artifact-free time delays. It creates a single echo of the input signal
     with controllable delay time and mix level.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [2] Smith, Julius O. "Digital Audio Effects." 
+            https://ccrma.stanford.edu/~jos/fp3/Phase_Unwrapping.html
+    
     The delay is implemented in the frequency domain using the time-shift property:
 
     .. math::
-
+    
         Y(\\omega) = X(\\omega)e^{-j\\omega\\tau}
 
     where:
@@ -40,12 +34,21 @@ class BasicDelay(ProcessorsBase):
         - τ is the delay time in seconds
         - Phase is unwrapped to ensure continuous delay response
 
+    Processing Chain:
+        1. Zero-pad input for delay buffer
+        2. Convert to frequency domain
+        3. Calculate phase shift (z^-N term)
+        4. Apply phase shift to spectrum
+        5. Convert back to time domain
+        6. Mix processed signal with original
+
     Args:
         sample_rate (int): Audio sample rate in Hz
+        param_range (Dict[str, EffectParam], optional): Parameter ranges.
 
     Parameters Details:
         delay_ms: Echo delay time
-            - Range: 0.1 to 3000.0 milliseconds
+            - Range: 0.1 to 1000.0 milliseconds
             - Controls time offset between original and delayed signal
             - Minimum value ensures stable processing
             - Maximum value set for practical buffer sizes
@@ -60,6 +63,10 @@ class BasicDelay(ProcessorsBase):
         - Uses FFT-based delay for precise time shifting
         - Phase unwrapping prevents discontinuities in delay
         - Automatic padding handles all delay times
+        - Particularly effective for:
+            - Creating simple echoes
+            - Adding space to dry signals
+            - Basic time-based effects
 
     Examples:
         Basic DSP Usage:
@@ -96,11 +103,11 @@ class BasicDelay(ProcessorsBase):
         """Register delay time and mix parameters.
         
         Sets up two parameters:
-            - delay_ms: Delay time in milliseconds (0.1 to 3000.0)
+            - delay_ms: Delay time in milliseconds (0.1 to 1000.0)
             - mix: Wet/dry mix ratio (0.0 to 1.0)
         """
         self.params = {
-            'delay_ms': EffectParam(min_val=10, max_val=3000.0),
+            'delay_ms': EffectParam(min_val=10, max_val=1000.0),
             'mix': EffectParam(min_val=0.0, max_val=1.0)
         }
     
@@ -111,8 +118,7 @@ class BasicDelay(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
-                - 'delay_time': Delay time in seconds (0 to 1)
-                - 'feedback': Amount of delayed signal fed back (0 to 1)
+                - 'delay_ms': Delay time in milliseconds (0 to 1)
                 - 'mix': Wet/dry balance (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
@@ -174,15 +180,17 @@ class BasicDelay(ProcessorsBase):
 class BasicFeedbackDelay(ProcessorsBase):
     """Differentiable implementation of a feedback delay line.
     
-    The implementation is based on: 
-    
-    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
-            Audio effects: theory, implementation and application. CRC Press, 2014.
-    
     This processor implements a delay line with feedback and feedforward paths, creating
     multiple decaying echoes. The implementation uses frequency-domain processing and 
     a feedback-feedforward structure for flexible echo patterns.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [2] Smith, Julius O. "Digital Audio Effects." 
+            https://ccrma.stanford.edu/~jos/fp3/Phase_Unwrapping.html
+    
     The transfer function of the system is from [1]:
 
     .. math::
@@ -205,10 +213,11 @@ class BasicFeedbackDelay(ProcessorsBase):
 
     Args:
         sample_rate (int): Audio sample rate in Hz
+        param_range (Dict[str, EffectParam], optional): Parameter ranges.
 
     Parameters Details:
         delay_ms: Echo delay time
-            - Range: 0.1 to 3000.0 milliseconds
+            - Range: 0.1 to 1000.0 milliseconds
             - Controls time between successive echoes
             - Determines rhythmic pattern of echoes
             
@@ -228,7 +237,17 @@ class BasicFeedbackDelay(ProcessorsBase):
             - Controls level of direct delayed signal
             - Shapes initial echo response
             - Independent of feedback path
-    
+
+    Note:
+        - Uses FFT-based delay for precise time shifting
+        - Phase unwrapping prevents discontinuities
+        - Automatic padding handles all delay times
+        - Particularly effective for:
+            - Creating rhythmic echo patterns
+            - Adding depth and space
+            - Building complex delay textures
+        - System stability is maintained by gain limits
+
     Examples:
         Basic DSP Usage:
             >>> # Create a feedback delay
@@ -266,13 +285,13 @@ class BasicFeedbackDelay(ProcessorsBase):
         """Register delay, mix, and gain parameters.
         
         Sets up four parameters:
-            - delay_ms: Delay time in milliseconds (0.1 to 3000.0)
+            - delay_ms: Delay time in milliseconds (0.1 to 1000.0)
             - mix: Wet/dry mix ratio (0.0 to 1.0)
             - fb_gain: Feedback gain (0.0 to 0.99)
             - ff_gain: Feedforward gain (0.0 to 0.99)
         """
         self.params = {
-            'delay_ms': EffectParam(min_val=0.1, max_val=3000.0),
+            'delay_ms': EffectParam(min_val=0.1, max_val=1000.0),
             'mix': EffectParam(min_val=0, max_val=1.0),
             'fb_gain': EffectParam(min_val=0.0, max_val=0.99),
             'ff_gain': EffectParam(min_val=0.0, max_val=0.99)
@@ -285,9 +304,9 @@ class BasicFeedbackDelay(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
-                - 'delay_time': Base delay time in seconds (0 to 1)
-                - 'feedback': Amount of signal fed back through delay line (0 to 1)
-                - 'diffusion': Controls spread of feedback paths (0 to 1)
+                - 'delay_ms': Base delay time in milliseconds (0 to 1)
+                - 'fb_gain': Amount of signal fed back through delay line (0 to 1)
+                - 'ff_gain': Feedforward gain (0 to 1)
                 - 'mix': Wet/dry balance (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
@@ -352,6 +371,8 @@ class SlapbackDelay(BasicDelay):
     
     ..  [1] Reiss, Joshua D., and Andrew McPherson. 
             Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [2] Smith, Julius O. "Digital Audio Effects." 
+            https://ccrma.stanford.edu/~jos/fp3/Phase_Unwrapping.html
     
     This processor extends BasicDelay to create a specialized short delay effect
     that emulates the distinctive "doubling" sound popularized in 1950s recordings.
@@ -374,6 +395,7 @@ class SlapbackDelay(BasicDelay):
 
     Args:
         sample_rate (int): Audio sample rate in Hz
+        param_range (Dict[str, EffectParam], optional): Parameter ranges.
 
     Parameters Details:
         delay_ms: Slapback delay time

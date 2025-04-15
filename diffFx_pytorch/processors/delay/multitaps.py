@@ -11,15 +11,17 @@ from ..core.phase import unwrap_phase
 class MultiTapsDelay(ProcessorsBase):
     """Differentiable implementation of a multi-tap delay effect.
     
-    The implementation is based on: 
-    
-    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
-            Audio effects: theory, implementation and application. CRC Press, 2014.
-    
     This processor implements a parallel delay structure with multiple taps, where each tap
     represents an independent echo with its own delay time and gain. The implementation uses
     frequency-domain processing for precise timing control and efficient computation.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [2] Smith, Julius O. "Digital Audio Effects." 
+            https://ccrma.stanford.edu/~jos/fp3/Phase_Unwrapping.html
+    
     The transfer function is a sum of delayed signals:
 
     .. math::
@@ -32,9 +34,18 @@ class MultiTapsDelay(ProcessorsBase):
         - τ_i is the delay time of tap i
         - Phase is unwrapped for each tap
 
+    Processing Chain:
+        1. Zero-pad input for maximum delay buffer
+        2. Convert to frequency domain
+        3. Calculate phase shifts for each tap
+        4. Apply gains and sum delayed signals
+        5. Convert back to time domain
+        6. Mix processed signal with original
+
     Args:
         sample_rate (int): Audio sample rate in Hz
         num_taps (int): Number of independent delay taps. Defaults to 4.
+        param_range (Dict[str, EffectParam], optional): Parameter ranges.
 
     Parameters Details:
         For each tap i (where i ranges from 0 to num_taps-1):
@@ -42,17 +53,31 @@ class MultiTapsDelay(ProcessorsBase):
                 - Range: 50.0 to 500.0 milliseconds
                 - Controls timing of each echo
                 - Independent control per tap
+                - Can create complex rhythmic patterns
                 
             i_tap_gains: Gain for tap i
                 - Range: 0.0 to 1.0
                 - Controls amplitude of each echo
                 - Allows creation of complex patterns
+                - Can be used for amplitude envelopes
                 
         mix: Overall wet/dry mix ratio
             - Range: 0.0 to 1.0
             - 0.0: Only original signal
             - 1.0: Only processed signal
-    
+            - Controls overall effect intensity
+
+    Note:
+        - Uses FFT-based delay for precise time shifting
+        - Phase unwrapping prevents discontinuities
+        - Automatic padding handles all delay times
+        - Particularly effective for:
+            - Creating complex rhythmic patterns
+            - Building custom echo sequences
+            - Designing unique delay textures
+        - Each tap can be independently controlled
+        - System is stable for all parameter values
+
     Examples:
         Basic DSP Usage:
             >>> # Create a 4-tap delay
@@ -86,6 +111,12 @@ class MultiTapsDelay(ProcessorsBase):
             ...     
             ...     def forward(self, x):
             ...         return self.net(x)
+            >>> 
+            >>> # Process with features
+            >>> controller = MultiTapController(input_size=16, num_taps=4)
+            >>> features = torch.randn(batch_size, 16)
+            >>> norm_params = controller(features)
+            >>> output = delay(input_audio, norm_params=norm_params)
     """
     def __init__(self, sample_rate, param_range=None, num_taps=4):
         self.num_taps = num_taps
@@ -116,10 +147,8 @@ class MultiTapsDelay(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
-                - 'base_time': Base delay time for first tap (0 to 1)
-                - 'time_mult': Multiplier between successive taps (0 to 1)
-                - 'decay': Amplitude decay rate across taps (0 to 1)
-                - 'spread': Stereo spread between taps (0 to 1)
+                - '{i}_tap_delays_ms': Base delay time for each tap (0 to 1)
+                - '{i}_tap_gains': Tap gain for each tap (0 to 1)
                 - 'mix': Wet/dry balance (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.

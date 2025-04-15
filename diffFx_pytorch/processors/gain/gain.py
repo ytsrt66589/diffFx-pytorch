@@ -15,20 +15,20 @@ class Gain(ProcessorsBase):
 
     .. math::
 
-        y(n) = x(n) * 10^{gain_{dB}/20}
+        y[n] = x[n] * 10^{gain_{dB}/20}
 
     where:
-        - x(n) is the input signal
+        - x[n] is the input signal
         - gain_dB is the gain in decibels
         - Division by 20 converts dB to amplitude ratio
 
     Args:
-        sample_rate (int): Audio sample rate in Hz
+        sample_rate (int): Audio sample rate in Hz 
         param_range (Dict[str, EffectParam]): Parameter range for the gain control
     
     Parameters Details:
         gain_db: Gain control in decibels
-            - Range: -12.0 to 12.0 dB
+            - Default Range: -12.0 to 12.0 dB
             - Logarithmic control for natural volume scaling
 
     Examples:

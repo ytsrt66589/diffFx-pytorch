@@ -181,12 +181,8 @@ class StereoImager(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
-                - 'low_width': Width control for low band (0 to 1)
-                - 'mid_width': Width control for mid band (0 to 1)
-                - 'high_width': Width control for high band (0 to 1)
-                - 'low_crossover': Frequency between low/mid bands (0 to 1)
-                - 'high_crossover': Frequency between mid/high bands (0 to 1)
-                - 'mix': Wet/dry balance (0 to 1)
+                - 'bandi_width': Width control for band i (0 to 1)
+                - 'crossoveri_freq': Frequency between band i and band i+1 (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
                 Can specify imager parameters as:

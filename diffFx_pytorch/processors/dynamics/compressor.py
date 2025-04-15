@@ -96,7 +96,6 @@ class Compressor(ProcessorsBase):
             - Affects the "movement" of the compression
         makeup_db: Gain applied after compression
             - Compensates for level reduction from compression
-            - Typically set to match peak levels with input
 
     Note:
         The processor supports the following parameter ranges:
@@ -209,31 +208,32 @@ class Compressor(ProcessorsBase):
             'makeup_db': EffectParam(min_val=-12.0, max_val=12.0) 
         }
              
-    def process(self, 
-        x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
-        dsp_params: Union[Dict[str, torch.Tensor], None] = None
-    ) -> torch.Tensor:
-        """Process audio through the compressor.
-    
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+        """Process input signal through the compressor.
+
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters. 
+                Dictionary with keys:
+                - 'threshold_db': Level at which compression begins (-60 to 0 dB)
+                - 'ratio': Amount of gain reduction above threshold (1 to 20)
+                - 'knee_db': Width of transition region around threshold (0 to 12 dB)
+                - 'attack_ms': Time to react to level increases (0.1 to 100 ms)
+                - 'release_ms': Time to react to level decreases (10 to 1000 ms)
+                - 'makeup_db': Gain applied after compression (-12 to 12 dB)
+                Each value should be a tensor of shape (batch_size,)
+                Values will be mapped to their respective ranges
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
-        Note:
-            When using norm_params, values are automatically mapped to their DSP ranges.
-            When using dsp_params, values should be in their natural units:
-            - threshold_db: dB
-            - ratio: compression ratio
-            - knee_db: dB
-            - attack_ms: milliseconds
-            - release_ms: milliseconds
-            - makeup_db: dB
         """
         # Process parameters
         check_params(norm_params, dsp_params)
@@ -358,37 +358,6 @@ class MultiBandCompressor(ProcessorsBase):
             d. Gain Application: Convert to linear gain and apply to band
         3. Band Summation: Sum all processed bands to create final output
 
-    The compressor implements the following gain computation for each band:
-
-    Hard Knee:
-        .. math::
-
-            g(x) = \\begin{cases}
-                0, & \\text{if } x \\leq T \\\\
-                (T + \\frac{x - T}{R}) - x, & \\text{if } x > T
-            \\end{cases}
-
-    Quadratic Knee:
-        .. math::
-
-            g(x) = \\begin{cases}
-                0, & \\text{if } x \\leq T - W/2 \\\\
-                (\\frac{1}{R} - 1)\\frac{(x - T + W/2)^2}{4W}, & \\text{if } T - W/2 < x \\leq T + W/2 \\\\
-                (T + \\frac{x - T}{R}) - x, & \\text{if } x > T + W/2
-            \\end{cases}
-
-    Exponential Knee:
-        .. math::
-
-            g(x) = (\\frac{1}{R} - 1) \\frac{\\text{softplus}(k(x - T))}{k}
-
-    Variables:
-        - x: input level in dB
-        - T: threshold in dB
-        - R: ratio
-        - W: knee width in dB
-        - k: knee factor (exp(W))
-
     Args:
         sample_rate (int): Audio sample rate in Hz
         param_range (Dict[str, EffectParam], optional): Parameter ranges.
@@ -398,69 +367,41 @@ class MultiBandCompressor(ProcessorsBase):
         smooth_type (str, optional): Type of envelope follower.
             Must be one of: "ballistics", "iir". Defaults to "ballistics".
 
-    Attributes:
-        num_bands (int): Number of frequency bands
-        knee_type (str): Current knee characteristic type
-        smoothing_type (str): Current envelope follower type
-        ballistics (Ballistics): Envelope follower for attack/release
-        iir_filter (TruncatedOnePoleIIRFilter): IIR filter for smoothing
-        crossovers (nn.ModuleList): List of Linkwitz-Riley crossover filters
-
     Parameters Details:
         For each band i (0 to num_bands-1):
             band{i}_threshold_db: Level at which compression begins
-                - Controls where compression starts for this band
-                - More negative values compress more of the signal
-                - Range: -60 to 0 dB
+                - Controls where compression starts for this band (-60 to 0 dB)
             band{i}_ratio: Amount of gain reduction above threshold
-                - Higher ratios mean more compression in this band
-                - 2:1 means for every 2 dB increase, output increases by 1 dB
-                - Range: 1 to 20
-            band{i}_knee_db: Width of the transition region
-                - 0 dB creates a hard knee (sudden transition)
-                - Larger values create smoother transitions
-                - Range: 0 to 12 dB
-            band{i}_attack_ms: Time to react to increases in level
-                - Shorter times mean faster response to transients
-                - Range: 1 to 500 ms
-            band{i}_release_ms: Time to react to decreases in level
-                - Controls how quickly compression is reduced
-                - Range: 10 to 2000 ms
+                - Higher ratios mean more compression (1 to 20)
+            band{i}_knee_db: Width of transition region around threshold
+                - Controls how gradually compression is applied (0 to 12 dB)
+            band{i}_attack_ms: Time to react to level increases
+                - Controls response to transients (1 to 500 ms)
+            band{i}_release_ms: Time to react to level decreases
+                - Controls recovery time (10 to 2000 ms)
             band{i}_makeup_db: Gain applied after compression
-                - Compensates for level reduction from compression
-                - Range: -24 to 24 dB
+                - Compensates for level reduction (-24 to 24 dB)
         
         Crossover frequencies:
-            crossover{i}_freq: Frequency splitting points between bands
-                - Logarithmically spaced between 20 Hz and 20 kHz
-                - crossover{i}_freq splits bands i and i+1
-                - Range: Varies based on band position
+            crossover{i}_freq: Split frequency between bands i and i+1
+                - Logarithmically spaced between bands
+                - Range varies based on position (20 Hz to 20 kHz)
 
     Note:
-        - Crossover filters use 4th-order Linkwitz-Riley design
-        - Band splitting is done in series for proper phase relationships
+        - Uses 4th-order Linkwitz-Riley crossover filters
+        - Band splitting is done in series for proper phase alignment
         - Each band has independent compression parameters
-        - Parameters can be controlled via DSP values or normalized inputs
+        - Parameters can be controlled via normalized (0-1) or DSP values
+        - Total parameters = num_bands * 6 + (num_bands - 1)
 
-    Warning:
-        When using with neural networks:
-            - norm_params must be in range [0, 1]
-            - Parameters will be automatically mapped to their DSP ranges
-            - Each band requires 6 parameters plus crossover frequencies
-            - Total parameters = num_bands * 6 + (num_bands - 1)
-            - Parameter order must match _register_default_parameters()
-            - Ensure network output dimension matches total parameters
-        
     Examples:
-        Basic DSP Usage:
+        Basic Usage:
             >>> # Create a 3-band compressor
             >>> mb_comp = MultiBandCompressor(
             ...     sample_rate=44100,
-            ...     num_bands=3,
-            ...     knee_type="quadratic",
-            ...     smooth_type="ballistics"
+            ...     num_bands=3
             ... )
-            >>> # Process with direct DSP parameters
+            >>> # Process with DSP parameters
             >>> output = mb_comp(input_audio, dsp_params={
             ...     'band0_threshold_db': -24.0,  # Low band
             ...     'band0_ratio': 4.0,
@@ -485,38 +426,24 @@ class MultiBandCompressor(ProcessorsBase):
             ... })
 
         Neural Network Control:
-            >>> # 1. Create parameter prediction network
+            >>> # Create parameter prediction network
             >>> class MultiBandCompressorNet(nn.Module):
             ...     def __init__(self, input_size, num_bands):
             ...         super().__init__()
-            ...         # 6 params per band + (num_bands-1) crossovers
             ...         num_params = num_bands * 6 + (num_bands - 1)
             ...         self.net = nn.Sequential(
-            ...             nn.Linear(input_size, 64),
-            ...             nn.ReLU(),
-            ...             nn.Linear(64, 32),
+            ...             nn.Linear(input_size, 32),
             ...             nn.ReLU(),
             ...             nn.Linear(32, num_params),
-            ...             nn.Sigmoid()  # Ensures output is in [0,1]
+            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
             ...         )
             ...     
             ...     def forward(self, x):
             ...         return self.net(x)
             >>> 
-            >>> # Initialize processor and network
-            >>> mb_comp = MultiBandCompressor(
-            ...     sample_rate=44100,
-            ...     num_bands=3
-            ... )
-            >>> num_params = mb_comp.count_num_parameters()  # 21 parameters
-            >>> controller = MultiBandCompressorNet(
-            ...     input_size=16,
-            ...     num_bands=3
-            ... )
-            >>> 
             >>> # Process with predicted parameters
-            >>> features = torch.randn(batch_size, 16)
-            >>> norm_params = controller(features)
+            >>> controller = MultiBandCompressorNet(input_size=16, num_bands=3)
+            >>> norm_params = controller(features)  # Shape: [batch_size, 21]
             >>> output = mb_comp(input_audio, norm_params=norm_params)
     """
     def __init__(self, sample_rate, param_range=None, num_bands=3, knee_type="quadratic", smooth_type="ballistics"):
@@ -729,36 +656,33 @@ class MultiBandCompressor(ProcessorsBase):
     
     def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None,
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
-        """Process audio through the multi-band compressor.
+        """Process input signal through the multi-band compressor.
     
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-            dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
+                Dictionary with keys for each band i (0 to num_bands-1):
+                - f'band{i}_threshold_db': Level at which compression begins (-60 to 0 dB)
+                - f'band{i}_ratio': Amount of gain reduction above threshold (1 to 20)
+                - f'band{i}_knee_db': Width of transition region around threshold (0 to 12 dB)
+                - f'band{i}_attack_ms': Time to react to level increases (1 to 500 ms)
+                - f'band{i}_release_ms': Time to react to level decreases (10 to 2000 ms)
+                - f'band{i}_makeup_db': Gain applied after compression (-24 to 24 dB)
+                And crossover frequencies between bands:
+                - f'crossover{i}_freq': Split frequency between bands i and i+1
+                Each value should be a tensor of shape (batch_size,)
+                Values will be mapped to their respective ranges
+            dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
+                Can specify parameters as:
+                - float/int: Single value applied to entire batch
+                - 0D tensor: Single value applied to entire batch
+                - 1D tensor: Batch of values matching input batch size
+                Parameters will be automatically expanded to match batch size
+                and moved to input device if necessary.
                 If provided, norm_params must be None.
-                
+
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
-            
-        Note:
-            Processing chain:
-            1. Split input into bands using crossover filters in series
-            2. Process each band independently with compression
-            3. Sum processed bands to create final output
-            
-            When using norm_params, values are automatically mapped to DSP ranges.
-            When using dsp_params, values should be in their natural units:
-                - threshold_db: dB
-                - ratio: compression ratio
-                - knee_db: dB
-                - attack_ms: milliseconds
-                - release_ms: milliseconds
-                - makeup_db: dB
-                - crossover_freq: Hz
-            
-        Warning:
-            Ensure parameters for all bands and crossovers are provided.
-            Total parameters required = num_bands * 6 + (num_bands - 1)
         """
         check_params(norm_params, dsp_params)
         if norm_params is not None:

@@ -128,13 +128,16 @@ class Chorus(ProcessorsBase):
             'mix': EffectParam(min_val=0.0, max_val=1.0)
         }
         
-    def __init__(self, sample_rate=44100):
-        super().__init__()
-        self.sample_rate = sample_rate
+    def __init__(self, sample_rate=44100, param_range=None):
+        super().__init__(sample_rate, param_range)
         self._register_default_parameters()
         
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
-                dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(
+        self, 
+        x: torch.Tensor, 
+        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ) -> torch.Tensor:
         """Process input signal through the chorus effect.
     
         Args:
@@ -175,7 +178,10 @@ class Chorus(ProcessorsBase):
         mix = params['mix'].view(-1, 1, 1)              # (batch, 1, 1)
         
         # Calculate maximum delay in samples
-        max_delay_samples = int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        max_delay_samples = max(
+            1, 
+            int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        )
         delay_center = delay_ms / 1000.0 * self.sample_rate
         
         # Generate time base for LFO
@@ -332,14 +338,17 @@ class MultiVoiceChorus(ProcessorsBase):
         for i in range(self.num_voices):
             self.params[f'g{i}'] = EffectParam(min_val=0.0, max_val=1.0)
         
-    def __init__(self, sample_rate=44100, num_voices=2):
+    def __init__(self, sample_rate=44100, param_range=None, num_voices=2):
         self.num_voices = num_voices
-        super().__init__(sample_rate)
-        self.sample_rate = sample_rate
+        super().__init__(sample_rate, param_range)
         self._register_default_parameters()
         
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
-                dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(
+        self, 
+        x: torch.Tensor, 
+        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ) -> torch.Tensor:
         """Process input signal through the multi-voice chorus.
     
         Args:
@@ -379,7 +388,10 @@ class MultiVoiceChorus(ProcessorsBase):
         depth = params['depth'].view(-1, 1, 1)
         mix = params['mix'].view(-1, 1, 1)
         
-        max_delay_samples = int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        max_delay_samples = max(
+            1, 
+            int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        )
         delay_center = delay_ms / 1000.0 * self.sample_rate
         
         time = torch.linspace(0, n_samples/self.sample_rate, n_samples, device=device)
@@ -559,7 +571,7 @@ class StereoChorus(ProcessorsBase):
             self.params[f'g{i}'] = EffectParam(min_val=0.0, max_val=1.0)
             self.params[f'pan{i}'] = EffectParam(min_val=-1.0, max_val=1.0)
         
-    def __init__(self, sample_rate=44100, num_voices=2):
+    def __init__(self, sample_rate=44100, param_range=None, num_voices=2):
         """Initialize the stereo chorus processor.
     
         Args:
@@ -567,12 +579,15 @@ class StereoChorus(ProcessorsBase):
             num_voices (int): Number of chorus voices. Defaults to 2.
         """
         self.num_voices = num_voices
-        super().__init__(sample_rate)
-        self.sample_rate = sample_rate
+        super().__init__(sample_rate, param_range)
         self._register_default_parameters()
         
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
-                dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(
+        self, 
+        x: torch.Tensor, 
+        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ) -> torch.Tensor:
         """Process input signal through the stereo chorus.
     
         Args:
@@ -620,7 +635,10 @@ class StereoChorus(ProcessorsBase):
         depth = params['depth'].view(-1, 1, 1)
         mix = params['mix'].view(-1, 1, 1)
         
-        max_delay_samples = int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        max_delay_samples = max(
+            1, 
+            int(torch.max(delay_ms) * self.sample_rate / 1000.0)
+        )
         delay_center = delay_ms / 1000.0 * self.sample_rate
         
         time = torch.linspace(0, n_samples/self.sample_rate, n_samples, device=device)

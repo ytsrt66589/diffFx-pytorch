@@ -16,10 +16,9 @@ class Expander(Compressor):
     of signals that fall below the threshold. The amount of reduction is determined
     by the ratio parameter.
     """
-    
     def _register_default_parameters(self):
         self.params = {
-            'threshold_db': EffectParam(min_val=-80.0, max_val=-30.0),
+            'threshold_db': EffectParam(min_val=-80.0, max_val=0.0),
             'ratio': EffectParam(min_val=1.0, max_val=8.0),  
             'knee_db': EffectParam(min_val=0.0, max_val=6.0),
             'attack_ms': EffectParam(min_val=0.05, max_val=300.0),
@@ -35,8 +34,12 @@ class Expander(Compressor):
         self.knee_type = "quadratic"
         self.smoothing_type = "ballistics" # "iir" # "ballistics"
     
-    def _compute_gain(self, level_db: torch.Tensor, threshold_db: torch.Tensor,
-                     ratio: torch.Tensor, knee_db: torch.Tensor) -> torch.Tensor:
+    def _compute_gain(self, 
+        level_db: torch.Tensor, 
+        threshold_db: torch.Tensor,
+        ratio: torch.Tensor, 
+        knee_db: torch.Tensor
+    ) -> torch.Tensor:
         threshold_db = threshold_db.unsqueeze(-1)
         ratio = ratio.unsqueeze(-1)
         knee_db = knee_db.unsqueeze(-1)
@@ -45,22 +48,14 @@ class Expander(Compressor):
         below_knee = level_db < (threshold_db - knee_width)
         above_knee = level_db > (threshold_db + knee_width)
         
-        # No expansion above knee
+        # Below knee - full expansion
+        gain_below = (level_db - threshold_db) * (1/ratio - 1)
+        
+        # Above knee - no expansion
         gain_above = torch.zeros_like(level_db)
         
-        # Full expansion below knee
-        gain_below = (level_db - threshold_db) * (ratio - 1)
-        
-        # Smooth transition in knee region using quadratic curve
-        # Normalized position within knee region (0 to 1)
-        x = (level_db - (threshold_db - knee_width)) / (2 * knee_width)
-        
-        # Quadratic interpolation ensuring:
-        # At x=0: matches gain_below
-        # At x=1: reaches 0
-        # Smooth derivative at both ends
-        gain_at_knee_start = ((threshold_db - knee_width) - threshold_db) * (ratio - 1)
-        gain_knee = gain_at_knee_start * (1 - x).pow(2)
+        # In knee - quadratic transition
+        gain_knee = (1/ratio - 1) * (level_db - threshold_db + knee_width).pow(2) / (4 * knee_width)
         
         # Combine regions
         gain_db = (below_knee * gain_below + 
@@ -86,8 +81,8 @@ class Expander(Compressor):
         # Convert time constants to z_alpha
         if self.smoothing_type == "ballistics":
             z_alpha = torch.stack([
-                ms_to_z_alpha(params['release_ms'], self.sample_rate),
                 ms_to_z_alpha(params['attack_ms'], self.sample_rate),
+                ms_to_z_alpha(params['release_ms'], self.sample_rate),
             ], dim=-1)
             smoothed_db = self.ballistics(level_db, z_alpha)
         else:  # "iir"
@@ -147,37 +142,23 @@ class MultiBandExpander(MultiBandCompressor):
         ratio = ratio.unsqueeze(-1)  # Shape: (batch, 1)
         knee_db = knee_db.unsqueeze(-1)  # Shape: (batch, 1)
         
-        if self.knee_type == "hard":
-            below_thresh = level_db < threshold_db
-            gain_db = torch.where(
-                below_thresh,
-                (level_db - threshold_db) * ratio + threshold_db - level_db,  # Expansion below threshold
-                torch.zeros_like(level_db)  # No change above threshold
-            )
-            
-        elif self.knee_type == "quadratic":
-            knee_width = knee_db / 2
-            below_knee = level_db < (threshold_db - knee_width)
-            above_knee = level_db > (threshold_db + knee_width)
-            
-            # No expansion above knee
-            gain_above = torch.zeros_like(level_db)
-            
-            # Full expansion below knee
-            gain_below = (level_db - threshold_db) * ratio + threshold_db - level_db
-            
-            # Smooth transition in knee region
-            gain_knee = ((ratio - 1) * (level_db - threshold_db + knee_width).pow(2)) / (4 * knee_width)
-            
-            # Combine regions
-            gain_db = (below_knee * gain_below + 
-                    above_knee * gain_above + 
-                    (~below_knee & ~above_knee) * gain_knee)
-            
-        # else:  # exponential
-        #     knee_factor = knee_db  # W in the formula
-        #     gain_db = level_db + (1 - ratio) * torch.log1p(torch.exp(knee_factor * (level_db - threshold_db))) / knee_factor
-        #     # Gy[n] = Gu[n] + (1-R)log(1 + exp(W(Gu[n]-T)))/W
+        knee_width = knee_db / 2
+        below_knee = level_db < (threshold_db - knee_width)
+        above_knee = level_db > (threshold_db + knee_width)
+        
+        # Below knee - full expansion
+        gain_below = (level_db - threshold_db) * (1/ratio - 1)
+        
+        # Above knee - no expansion
+        gain_above = torch.zeros_like(level_db)
+        
+        # In knee - quadratic transition
+        gain_knee = (1/ratio - 1) * (level_db - threshold_db + knee_width).pow(2) / (4 * knee_width)
+        
+        # Combine regions
+        gain_db = (below_knee * gain_below + 
+                above_knee * gain_above + 
+                (~below_knee & ~above_knee) * gain_knee)
         
         return gain_db
     

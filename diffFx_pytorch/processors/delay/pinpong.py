@@ -11,16 +11,18 @@ from ..core.phase import unwrap_phase
 class PingPongDelay(ProcessorsBase):
     """Differentiable implementation of a stereo ping-pong delay effect.
     
-    The implementation is based on: 
-    
-    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
-            Audio effects: theory, implementation and application. CRC Press, 2014.
-            
     This processor implements a stereo delay effect where echoes alternate between
     left and right channels, creating a "ping-pong" spatial pattern. The implementation
     uses a cross-coupled feedback structure in the frequency domain for precise timing
     and smooth transitions.
 
+    Implementation is based on: 
+    
+    ..  [1] Reiss, Joshua D., and Andrew McPherson. 
+            Audio effects: theory, implementation and application. CRC Press, 2014.
+    ..  [2] Smith, Julius O. "Digital Audio Effects." 
+            https://ccrma.stanford.edu/~jos/fp3/Phase_Unwrapping.html
+    
     The system is described by coupled transfer functions:
 
     .. math::
@@ -48,6 +50,7 @@ class PingPongDelay(ProcessorsBase):
 
     Args:
         sample_rate (int): Audio sample rate in Hz
+        param_range (Dict[str, EffectParam], optional): Parameter ranges.
 
     Parameters Details:
         delay_ms: Base delay time
@@ -69,7 +72,17 @@ class PingPongDelay(ProcessorsBase):
             - Range: 0.0 to 1.0
             - 0.0: Only original signal
             - 1.0: Only processed signal
-    
+
+    Note:
+        - Uses FFT-based delay for precise time shifting
+        - Phase unwrapping prevents discontinuities
+        - Automatic padding handles all delay times
+        - Particularly effective for:
+            - Creating rhythmic spatial patterns
+            - Adding stereo width and movement
+            - Building complex stereo textures
+        - System stability is maintained by gain limits
+
     Examples:
         Basic DSP Usage:
             >>> # Create a ping-pong delay
@@ -126,9 +139,9 @@ class PingPongDelay(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
-                - 'delay_time': Base delay time in seconds (0 to 1)
-                - 'feedback': Amount of cross-coupled feedback (0 to 1)
-                - 'stereo_width': Controls stereo spread (0 to 1)
+                - 'delay_ms': Base delay time in milliseconds (0 to 1)
+                - 'feedback_ch1': Left channel feedback (0 to 1)
+                - 'feedback_ch2': Right channel feedback (0 to 1)
                 - 'mix': Wet/dry balance (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
@@ -195,4 +208,4 @@ class PingPongDelay(ProcessorsBase):
         y = y[..., max_delay_samples:max_delay_samples + x.shape[-1]]
         
         return (1 - mix) * x + mix * y
-   
+    

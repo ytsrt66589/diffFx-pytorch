@@ -7,10 +7,10 @@ from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
 from ..core.envelope import TruncatedOnePoleIIRFilter, Ballistics
 from ..core.utils import ms_to_z_alpha
-from ..filters import LinkwitzRileyFilter
+# from ..filters import LinkwitzRileyFilter
 
-
-class TransientShaper(ProcessorsBase):
+# 
+class DrumTransientShaper(ProcessorsBase):
     """Differentiable implementation of a transient shaping processor.
     
     The implementation is based on following: 
@@ -121,8 +121,8 @@ class TransientShaper(ProcessorsBase):
             >>> norm_params = controller(features)
             >>> output = shaper(input_audio, norm_params=norm_params)
     """
-    def __init__(self, mode="attack", sample_rate=44100):
-        super().__init__(sample_rate=sample_rate)
+    def __init__(self, sample_rate=44100, param_range=None, mode="attack"):
+        super().__init__(sample_rate, param_range)
         self.mode = mode
         self.ballistics = Ballistics()
         self.power_filter = TruncatedOnePoleIIRFilter(iir_len=16384)
@@ -143,7 +143,7 @@ class TransientShaper(ProcessorsBase):
             'release_ms': EffectParam(min_val=10.0, max_val=100.0)
         }
                 
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         
         """Process input audio through the transient shaper.
         
@@ -189,18 +189,23 @@ class TransientShaper(ProcessorsBase):
             params = dsp_params
                 
         # 1. Normalize
-        x_peak = torch.max(torch.abs(x), dim=-1, keepdim=True)[0]
+        x_peak = torch.max(torch.abs(x), -1)[0]
+        x_peak = x_peak.unsqueeze(-1)
         x_norm = x / (x_peak + 1e-8)
 
         # 2. Get coefficients and ensure proper shapes
-        z_alpha_power = ms_to_z_alpha(params['power_mem_ms'], self.sample_rate).unsqueeze(-1)  # Shape: (batch, 1)
-        g_fast = params['fast_attack_ms'] #self._ms_to_coeff(params['fast_attack_ms'])#.unsqueeze(-1)         # Shape: (batch, 1)
-        g_slow = params['slow_attack_ms'] #self._ms_to_coeff(params['slow_attack_ms'])#.unsqueeze(-1)         # Shape: (batch, 1)
-        g_release = params['release_ms'] #self._ms_to_coeff(params['release_ms'])#.unsqueeze(-1)          # Shape: (batch, 1)
+        z_alpha_power = ms_to_z_alpha(
+            params['power_mem_ms'], 
+            self.sample_rate
+        ).unsqueeze(-1)  # Shape: (batch, 1)
+
+        g_fast = params['fast_attack_ms'] # Shape: (batch, 1)
+        g_slow = params['slow_attack_ms'] # Shape: (batch, 1)
+        g_release = params['release_ms'] # Shape: (batch, 1)
         
         # Power Envelope 
-        # x_squared = x_norm.square().mean(-2)  # Shape: (batch, time)
-        x_squared = x_norm.squeeze(1)
+        x_squared = x_norm.square()
+        x_squared = x_squared.squeeze(1)
         
         # Ensure power filter input shapes are correct
         power = self.power_filter(x_squared, z_alpha_power)  # Shape: (batch, time)
@@ -214,13 +219,11 @@ class TransientShaper(ProcessorsBase):
         z_alpha_fast = torch.stack([
             ms_to_z_alpha(g_release, self.sample_rate),
             ms_to_z_alpha(g_fast, self.sample_rate),
-            #ms_to_z_alpha(g_release, self.sample_rate),
         ], dim=-1)  # Shape: (batch, 2)
         
         z_alpha_slow = torch.stack([
             ms_to_z_alpha(g_release, self.sample_rate),
             ms_to_z_alpha(g_slow, self.sample_rate),
-            #ms_to_z_alpha(g_release, self.sample_rate),
         ], dim=-1)  # Shape: (batch, 2)
         
         fast_env = self.ballistics(power_deriv, z_alpha_fast)
@@ -228,7 +231,10 @@ class TransientShaper(ProcessorsBase):
         
         # 4. Attack gain curve
         attack_gain = fast_env - slow_env
-        attack_gain = attack_gain / (torch.max(torch.abs(attack_gain), dim=-1, keepdim=True)[0] + 1e-8)
+        
+        # print(attack_gain)
+        # print(torch.max(torch.abs(attack_gain), dim=-1, keepdim=True)[0])
+        attack_gain = attack_gain / (torch.max(torch.abs(attack_gain), dim=-1)[0].unsqueeze(-1) + 1e-15)
         
         # 5. Apply gain
         if self.mode == "attack":
@@ -236,8 +242,7 @@ class TransientShaper(ProcessorsBase):
         else:
             y = x_norm * (1.0 - attack_gain).unsqueeze(1)
         
-        
-        return y * x_peak 
+        return y * x_peak #+ x
 
 
 

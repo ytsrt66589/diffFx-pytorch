@@ -114,7 +114,6 @@ class StereoWidener(ProcessorsBase):
                     0.0: Mono/centered
                     0.5: Original stereo width
                     1.0: Maximum width
-                - 'balance': L/R balance adjustment (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
                 Can specify widener parameters as:

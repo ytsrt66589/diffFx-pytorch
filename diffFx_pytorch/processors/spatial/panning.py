@@ -104,7 +104,6 @@ class StereoPanning(ProcessorsBase):
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                 - 'pan': Stereo position from left to right (0 to 1)
-                - 'width': Stereo width/spread control (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
                 Can specify panner parameters as:

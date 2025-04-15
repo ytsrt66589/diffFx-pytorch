@@ -16,21 +16,11 @@ class ParametricEqualizer(ProcessorsBase):
             Audio effects: theory, implementation and application. CRC Press, 2014.
     ..  [2] Lee, Sungho, et al. "GRAFX: an open-source library for audio processing graphs in PyTorch." 
             arXiv preprint arXiv:2408.03204 (2024).
-            
+    
     This processor implements a versatile parametric equalizer combining multiple peak filters
     with high and low shelf filters. Each filter section provides independent control over
     gain, frequency, and bandwidth (Q factor), offering precise frequency response shaping
     capabilities.
-
-    The equalizer consists of:
-        - A low shelf filter for controlling the bass region
-        - Multiple peak filters for surgical midrange control
-        - A high shelf filter for controlling the treble region
-
-    Processing Chain:
-        1. Low Shelf: Apply bass control with adjustable frequency and slope
-        2. Peak Filters: Apply multiple bands of peak/notch equalization
-        3. High Shelf: Apply treble control with adjustable frequency and slope
 
     Each filter section uses a second-order IIR (biquad) implementation with transfer function:
 
@@ -49,26 +39,47 @@ class ParametricEqualizer(ProcessorsBase):
         param_range (Dict[str, EffectParam], optional): Parameter ranges.
         num_peak_filters (int): Number of independent peak filters. Defaults to 3.
 
-    Attributes:
-        peak_filters (list): List of peak filter instances
-        low_shelf_filter (BiquadFilter): Low shelf filter instance
-        high_shelf_filter (BiquadFilter): High shelf filter instance
-
     Parameters Details:
         Low Shelf Section:
-            - low_shelf_gain_db: Gain for low frequencies (-12 to 12 dB)
-            - low_shelf_frequency: Corner frequency (20 to 500 Hz)
-            - low_shelf_q_factor: Slope control (0.1 to 1.0)
+            - low_shelf_gain_db: Gain for low frequencies
+                - Range: -12.0 to 12.0 dB
+                - Controls bass boost/cut
+            - low_shelf_frequency: Corner frequency
+                - Range: 20.0 to 500.0 Hz
+                - Controls bass transition point
+            - low_shelf_q_factor: Slope control
+                - Range: 0.1 to 1.0
+                - Controls bass shelf slope
 
         Peak Filter Sections (for each peak filter i):
-            - peak_i_gain_db: Gain for the band (-12 to 12 dB)
-            - peak_i_frequency: Center frequency (20 to 20000 Hz)
-            - peak_i_q_factor: Bandwidth control (0.1 to 10.0)
+            - peak_i_gain_db: Gain for the band
+                - Range: -12.0 to 12.0 dB
+                - Controls midrange boost/cut
+            - peak_i_frequency: Center frequency
+                - Range: 20.0 to 20000.0 Hz
+                - Controls midrange center point
+            - peak_i_q_factor: Bandwidth control
+                - Range: 0.1 to 10.0
+                - Controls midrange bandwidth
 
         High Shelf Section:
-            - high_shelf_gain_db: Gain for high frequencies (-12 to 12 dB)
-            - high_shelf_frequency: Corner frequency (5000 to 20000 Hz)
-            - high_shelf_q_factor: Slope control (0.1 to 1.0)
+            - high_shelf_gain_db: Gain for high frequencies
+                - Range: -12.0 to 12.0 dB
+                - Controls treble boost/cut
+            - high_shelf_frequency: Corner frequency
+                - Range: 5000.0 to 20000.0 Hz
+                - Controls treble transition point
+            - high_shelf_q_factor: Slope control
+                - Range: 0.1 to 1.0
+                - Controls treble shelf slope
+
+    Note:
+        The equalizer consists of three main sections:
+            - Low shelf filter for bass control
+            - Multiple peak filters for midrange control
+            - High shelf filter for treble control
+        Each section provides independent control over gain, frequency, and Q factor,
+        allowing for precise frequency response shaping.
 
     Warning:
         When using with neural networks:
@@ -178,17 +189,18 @@ class ParametricEqualizer(ProcessorsBase):
                 f'{peak_name}_q_factor': EffectParam(min_val=0.1, max_val=10.0),
             })
             
-    def process(self, x: torch.Tensor, norm_params:Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the parametric equalizer.
 
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
             norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
-                Must contain keys for each filter section:
-                - 'low_shelf_gain_db', 'low_shelf_freq'
-                - 'peak_X_gain_db', 'peak_X_freq', 'peak_X_q' for X in range(1, num_peaks+1)
-                - 'high_shelf_gain_db', 'high_shelf_freq'
+                Dictionary with keys for each parameter:
+                - Low shelf: 'low_shelf_gain_db', 'low_shelf_frequency', 'low_shelf_q_factor'
+                - Peak filters: 'peak_X_gain_db', 'peak_X_frequency', 'peak_X_q_factor' for X in range(1, num_peak_filters+1)
+                - High shelf: 'high_shelf_gain_db', 'high_shelf_frequency', 'high_shelf_q_factor'
                 Each value should be a tensor of shape (batch_size,)
+                Values will be mapped to their respective ranges 
             dsp_params (Dict[str, Union[float, torch.Tensor]], optional): Direct DSP parameters.
                 Can specify parameters as:
                 - float/int: Single value applied to entire batch

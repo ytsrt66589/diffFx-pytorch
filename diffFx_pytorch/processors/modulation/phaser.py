@@ -151,8 +151,8 @@ class Phaser(ProcessorsBase):
         ...     def forward(self, x):
         ...         return self.net(x)
     """
-    def __init__(self, sample_rate):
-        super().__init__(sample_rate)
+    def __init__(self, sample_rate, param_range=None):
+        super().__init__(sample_rate, param_range)
         self.prev_states = None
         self.osc = torch.sin 
         self.lpc_func = sample_wise_lpc
@@ -175,7 +175,7 @@ class Phaser(ProcessorsBase):
             'wet_mix': EffectParam(min_val=0.0, max_val=1.0),    # Wet/dry mix
         }
         
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], 
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the phaser effect.
    

@@ -96,7 +96,7 @@ class BitCrusher(ProcessorsBase):
         
         return x_crush
     
-    def process(self, x: torch.Tensor, norm_params: Dict[str, torch.Tensor], dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the bit crusher.
    
         Args:
