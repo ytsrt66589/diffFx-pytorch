@@ -10,7 +10,7 @@ needs_sphinx = '7.1.2'  # Minimum Sphinx version
 
 
 # Control how autodoc handles imports
-autodoc_mock_imports = ['torch', 'numpy', 'numba-cuda', 'pynvjitlink-cu12']  # Add any problematic imports
+autodoc_mock_imports = ['torch', 'numpy', 'numba', 'numba.config', 'numba-cuda', 'pynvjitlink-cu12']  # Add any problematic imports
 
 # -- Project information -----------------------------------------------------
 project = 'diffFx-pytorch'
