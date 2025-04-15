@@ -2,6 +2,12 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
+# Import our mock setup
+import mock_setup
+
+# Now continue with your regular setup
+sys.path.insert(0, os.path.abspath('../..'))
+
 import sphinx
 
 # Add in your configuration
