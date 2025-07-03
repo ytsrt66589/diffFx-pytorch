@@ -14,7 +14,7 @@ Several excellent libraries already exist, such as [GRAFX](https://github.com/sh
 
 
 ## Installation
-
+(Not yet supported, will update soon)
 
 ```bash
 pip install diffFx-pytorch
