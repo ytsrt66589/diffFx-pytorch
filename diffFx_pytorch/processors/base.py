@@ -1,14 +1,15 @@
 import torch 
 import torch.nn as nn 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple, Union
-from .base_utils import check_params
+from typing import Dict, Union
+
 
 @dataclass
 class EffectParam:
     min_val: float
     max_val: float
     default: float = None
+
 
 class ProcessorsBase(nn.Module):
     """Base class for differentiable audio effect processors.
@@ -23,8 +24,7 @@ class ProcessorsBase(nn.Module):
 
     Args:
         sample_rate (int): Audio sample rate in Hz. Defaults to 44100.
-        param_range (Dict[str, EffectParam], optional): Optional parameter definitions
-            to override or extend default parameters.
+        param_range (Dict[str, EffectParam], optional): Optional parameter definitions to override or extend default parameters.
 
     Attributes:
         sample_rate (int): Sampling rate in Hz
@@ -165,7 +165,12 @@ class ProcessorsBase(nn.Module):
             
         return batched_params
     
-    def forward(self, x: torch.Tensor, norm_params: Union[torch.Tensor, None] = None, dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None) -> torch.Tensor:
+    def forward(
+        self, 
+        x: torch.Tensor, 
+        norm_params: Union[torch.Tensor, None] = None, 
+        dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None
+    ) -> torch.Tensor:
         """Process input with either normalized or DSP parameters.
         
         Args:
@@ -178,22 +183,15 @@ class ProcessorsBase(nn.Module):
                 - 1D tensor: Batch-specific values
                 
         Returns:
-            Processed audio tensor
-            
-        Raises:
-            KeyError: If unknown parameter name provided
-            TypeError: If parameter has invalid type
-            ValueError: If tensor parameter shape invalid
-            
-        Note:
-            Only one of norm_params or dsp_params should be provided.
+            Processed audio tensor [batch, channels, samples]
         """
-        # check_params(norm_params, dsp_params)
-        params_dict, dsp_params_dict = None, None
         batch_size = x.shape[0]
-        if norm_params is not None:
+        params_dict, dsp_params_dict = None, None
+        
+        if norm_params is not None: # 
             assert len(norm_params.shape) == 2, "Expected 2D tensor" # Check if tensor is 2D [b, num_params]
             params_dict = self._tensor_to_dict(norm_params)
+        
         if dsp_params is not None:
             # Handle DSP parameters
             dsp_params_dict = {}
@@ -203,15 +201,13 @@ class ProcessorsBase(nn.Module):
                     
                 if isinstance(value, (int, float)):
                     # Convert scalar to batched tensor
-                    dsp_params_dict[name] = torch.full((batch_size,), float(value), 
-                                                    device=x.device, dtype=torch.float32)
+                    dsp_params_dict[name] = torch.full((batch_size,), float(value), device=x.device, dtype=torch.float32)
                 elif isinstance(value, torch.Tensor):
                     # Validate tensor parameter
                     if value.ndim == 0:  # Scalar tensor
                         dsp_params_dict[name] = value.expand(batch_size)
                     elif value.ndim == 1:  # Batched tensor
-                        assert value.shape[0] == batch_size, \
-                            f"Parameter '{name}' batch size {value.shape[0]} != {batch_size}"
+                        assert value.shape[0] == batch_size, f"Parameter '{name}' batch size {value.shape[0]} != {batch_size}"
                         dsp_params_dict[name] = value
                     else:
                         raise ValueError(f"Parameter '{name}' has too many dimensions: {value.ndim}")
@@ -221,12 +217,19 @@ class ProcessorsBase(nn.Module):
                         dsp_params_dict[name] = dsp_params_dict[name].to(x.device)
                 else:
                     raise TypeError(f"Parameter '{name}' has invalid type: {type(value)}")
-            # dsp_params_dict = dsp_params #self._tensor_to_dict(dsp_params)
+
+        # params_dict and dsp_params_dict are now dictionaries of tensors
+        # that are either normalized or DSP parameters
+        
         return self.process(x, params_dict, dsp_params_dict)
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
-            dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
-        """Process audio with the effect (to be implemented by subclasses).
+    def process(
+        self, 
+        x: torch.Tensor, 
+        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        dsp_params: Union[Dict[str, torch.Tensor], None] = None
+    ) -> torch.Tensor:
+        """Process audio with audio effects.
         
         Args:
             x: Input audio tensor [batch, channels, samples]
@@ -234,7 +237,7 @@ class ProcessorsBase(nn.Module):
             dsp_params: Optional dictionary of DSP parameters
             
         Returns:
-            Processed audio tensor
+            Processed audio tensor [batch, channels, samples]
         """
         raise NotImplementedError
     

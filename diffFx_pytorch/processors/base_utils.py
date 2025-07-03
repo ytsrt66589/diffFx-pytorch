@@ -4,7 +4,7 @@ from typing import Dict, Union
 def check_params(norm_params, dsp_params) -> None:
     """
     Check parameters validity:
-    1. At least one parameter should not be None
+    1. At least one parameter (norm_params or dsp_params) should not be None
     2. Both parameters cannot be not None simultaneously
     
     Args:

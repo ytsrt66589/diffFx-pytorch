@@ -173,28 +173,33 @@ class MultiTapsDelay(ProcessorsBase):
         tap_gains = torch.stack([params[f'{i}_tap_gains'] for i in range(self.num_taps)])
         mix = params['mix'].view(-1, 1, 1)
         
-        b, ch, s = x.shape
+        
         max_delay_samples = max(
             1,
             int(torch.max(tap_delays_ms) * self.sample_rate / 1000)
         )
         # Calculate FFT size (next power of 2 for efficiency)
-        fft_size = 2 ** int(np.ceil(np.log2(x.shape[-1] + max_delay_samples)))
+        fft_size = 2 ** int(torch.ceil(torch.log2(torch.tensor(x.shape[-1] + max_delay_samples))))
         # Pad input signal to FFT size
         pad_right = fft_size - (x.shape[-1] + max_delay_samples)
         x_padded = torch.nn.functional.pad(x, (max_delay_samples, pad_right))
         
         X = torch.fft.rfft(x_padded, n=fft_size)
-        freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate).to(x.device)
+        freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate, device=x.device)
         
-        y = torch.zeros_like(X)
-        for i in range(self.num_taps):
-            phase = -2 * np.pi * freqs * tap_delays_ms[i].view(-1, 1, 1) / 1000
-            phase = unwrap_phase(phase, dim=-1).double()
-            z_n = torch.exp(1j * phase).to(X.dtype)
-            y += tap_gains[i].view(-1, 1, 1) * z_n * X
+        # Vectorized processing for all taps
+        delays_expanded = tap_delays_ms[:, :, None, None]  # (num_taps, batch, 1, 1)
+        gains_expanded = tap_gains[:, :, None, None]       # (num_taps, batch, 1, 1)
+        freqs_expanded = freqs[None, None, None, :]        # (1, 1, 1, freq_bins)
+        X_expanded = X[None, :, :, :]                      # (1, batch, channels, freq_bins)
+
+        phases = -2 * torch.pi * freqs_expanded * delays_expanded / 1000  # (num_taps, batch, 1, freq_bins)
+        phases = unwrap_phase(phases, dim=-1)
+        z_n = torch.exp(1j * phases).to(X.dtype)  # (num_taps, batch, 1, freq_bins)
+
+        # Apply gain, phase, and sum over taps
+        y = (gains_expanded * z_n * X_expanded).sum(dim=0)  # (batch, channels, freq_bins)
         
-        # y = torch.fft.irfft(y, n=x_padded.shape[-1])[:, :, max_delay_samples:]
         y = torch.fft.irfft(y, n=fft_size)
         y = y[..., max_delay_samples:max_delay_samples + x.shape[-1]]
         return (1 - mix) * x + mix * y

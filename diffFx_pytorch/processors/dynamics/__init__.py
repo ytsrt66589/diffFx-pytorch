@@ -1,8 +1,8 @@
 from .compressor import Compressor, MultiBandCompressor
 from .limiter import Limiter, MultiBandLimiter
-from .expander import Expander, MultiBandExpander
-from .noisegate import NoiseGate, MultiBandNoiseGate
-from .transient import DrumTransientShaper
+from .expander import Expander#, MultiBandExpander
+from .noisegate import NoiseGate#, MultiBandNoiseGate
+# from .deesser import DeEsser
 
 __all__ = [
     "Compressor",
@@ -10,8 +10,8 @@ __all__ = [
     "Limiter",
     "MultiBandLimiter",
     "Expander",
-    "MultiBandExpander",
+    # # "MultiBandExpander",
     "NoiseGate",
-    "MultiBandNoiseGate",
-    "DrumTransientShaper"
+    # # "MultiBandNoiseGate",
+    # "DeEsser",
 ]

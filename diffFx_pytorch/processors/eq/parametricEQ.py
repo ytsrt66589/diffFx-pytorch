@@ -73,14 +73,6 @@ class ParametricEqualizer(ProcessorsBase):
                 - Range: 0.1 to 1.0
                 - Controls treble shelf slope
 
-    Note:
-        The equalizer consists of three main sections:
-            - Low shelf filter for bass control
-            - Multiple peak filters for midrange control
-            - High shelf filter for treble control
-        Each section provides independent control over gain, frequency, and Q factor,
-        allowing for precise frequency response shaping.
-
     Warning:
         When using with neural networks:
             - norm_params must be in range [0, 1]
@@ -211,7 +203,7 @@ class ParametricEqualizer(ProcessorsBase):
                 If provided, norm_params must be None.
 
         Returns:
-            torch.Tensor: Processed audio tensor of same shape as input
+            torch.Tensor: Processed audio tensor of same shape as input. Shape: (batch, channels, samples)
         """
         check_params(norm_params, dsp_params)
         

@@ -1,3 +1,6 @@
+# > ============ This part of code is from GRAFX, (https://github.com/sh-lee97/grafx) ============ <
+# > ============ We modified it to fit our needs ============ <
+# https://github.com/sh-lee97/grafx/blob/main/src/grafx/processors/core/iir.py
 import warnings
 from functools import partial, reduce
 
@@ -11,13 +14,6 @@ from torchaudio.functional import lfilter
 from torchlpc import sample_wise_lpc
 
 from .fir import FIRConvolution
-
-TORCHAUDIO_VERSION = torchaudio.__version__
-if TORCHAUDIO_VERSION < "2.4.0":
-    warnings.warn(
-        f"The current version of torchaudio ({TORCHAUDIO_VERSION}) provides lfilter that could be either slow or faulty. For example, see https://github.com/pytorch/audio/releases/tag/v2.4.0. We recommend using torchaudio>=2.4.0 or using the frequency-sampled version instead."
-    )
-
 
 class IIRFilter(nn.Module):
     r"""
@@ -272,12 +268,10 @@ class IIRFilter(nn.Module):
         delay = torch.exp(-1j * phase)
         return delay
 
-
 def _first_order_recursive_filter(x, a):
     # x: (batch, T)
     # a: (batch,)
     return sample_wise_lpc(x, -a[:, None, None].expand(-1, x.shape[1], -1))
-
 
 def _ssm_complex_conjugate(x, b12, complex_pole: torch.Tensor):
     #     |2 * Re(p) -|p|^2|
@@ -304,7 +298,6 @@ def _ssm_complex_conjugate(x, b12, complex_pole: torch.Tensor):
         - b1[..., None] * h.imag
     )
 
-
 def _ssm_real_pole(x, b12, poles):
     #     |p1 + p2  -p1 * p2|
     # A = |1        0       | = V @ diag(p1, p2) @ V^-1
@@ -323,7 +316,6 @@ def _ssm_real_pole(x, b12, poles):
     b1 = b12[..., :1]
     b2 = b12[..., 1:]
     return b1 * h.sum(1) + b2 * torch.sum(h * poles.reciprocal().unsqueeze(-1), 1)
-
 
 def _ssm_double_real_pole(x, b12, pole):
     # Since we cannot perform the diagonalisation when double poles are present, we just perform two first-order recursive filters in series.

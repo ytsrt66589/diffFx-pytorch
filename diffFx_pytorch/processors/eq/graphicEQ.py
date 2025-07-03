@@ -46,7 +46,7 @@ class GraphicEqualizer(ProcessorsBase):
             - 'iso': ISO standard frequencies (31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000 Hz)
             - 'octave': Octave-spaced bands
             - 'third_octave': Third-octave spaced bands
-            Defaults to 'iso'.
+            Defaults to 'octave'.
 
     Parameters Details:
         band_X_gain_db: Gain for band X (where X is 1 to num_bands)
@@ -54,13 +54,6 @@ class GraphicEqualizer(ProcessorsBase):
             - Controls gain at that frequency band
             - Positive values boost, negative values cut
 
-    Note:
-        The processor supports three types of frequency spacing:
-            - ISO: Standard audio frequencies
-            - Octave: Logarithmically spaced bands, one per octave
-            - Third-octave: Logarithmically spaced bands, three per octave
-        Each band uses a constant-Q design where the relative bandwidth remains
-        consistent across frequencies.
 
     Warning:
         When using with neural networks:
@@ -220,7 +213,7 @@ class GraphicEqualizer(ProcessorsBase):
                 If provided, norm_params must be None.
 
         Returns:
-            torch.Tensor: Processed audio tensor of same shape as input
+            torch.Tensor: Processed audio tensor of same shape as input. Shape: (batch, channels, samples)
         """
         check_params(norm_params, dsp_params)
         

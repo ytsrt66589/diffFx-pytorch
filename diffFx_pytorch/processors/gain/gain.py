@@ -70,7 +70,8 @@ class Gain(ProcessorsBase):
             'gain_db': EffectParam(min_val=-12.0, max_val=12.0)
         }
     
-    def process(self, 
+    def process(
+        self, 
         x: torch.Tensor, 
         norm_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None

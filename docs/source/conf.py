@@ -14,7 +14,6 @@ import sphinx
 nitpicky = True  # Warn about all broken references
 needs_sphinx = '7.1.2'  # Minimum Sphinx version
 
-
 # Control how autodoc handles imports
 autodoc_mock_imports = ['torch', 'numpy', 'numba', 'numba.config', 'numba-cuda', 'pynvjitlink-cu12']  # Add any problematic imports
 

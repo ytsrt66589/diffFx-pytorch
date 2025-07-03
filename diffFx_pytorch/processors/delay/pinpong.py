@@ -159,7 +159,6 @@ class PingPongDelay(ProcessorsBase):
         Raises:
             AssertionError: If input is not stereo (2 channels)
         """
-        # Set proper configuration
         check_params(norm_params, dsp_params)
         if norm_params is not None:
             params = self.map_parameters(norm_params)
@@ -178,32 +177,28 @@ class PingPongDelay(ProcessorsBase):
             1,
             int(torch.max(delay_ms) * self.sample_rate / 1000)
         )
-        # Calculate FFT size (next power of 2 for efficiency)
-        fft_size = 2 ** int(np.ceil(np.log2(x.shape[-1] + max_delay_samples)))
-        # Pad input signal to FFT size
+        fft_size = 2 ** int(torch.ceil(torch.log2(torch.tensor(x.shape[-1] + max_delay_samples, device=x.device))))
         pad_right = fft_size - (x.shape[-1] + max_delay_samples)
         x_padded = torch.nn.functional.pad(x, (max_delay_samples, pad_right))
         
         X = torch.fft.rfft(x_padded, n=fft_size)
-        freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate).to(x.device)
-        phase = -2 * np.pi * freqs * delay_ms / 1000
+        freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate, device=x.device)
+        phase = -2 * torch.pi * freqs * delay_ms / 1000
         phase = unwrap_phase(phase, dim=-1)
         z_n = torch.exp(1j * phase).to(X.dtype)
         
         eps = 1e-6
         den = 1 - b1 * b2 * z_n * z_n + eps
         
-        # Modified transfer functions for ping-pong behavior
-        H11 = 1 /den  # Direct path for left
-        H12 = b1 * z_n / den  # Left to right (single delay)
-        H21 = b2 * z_n / den  # Right to left (single delay)
-        H22 = b1 * b2 * z_n * z_n / den  # Right to right (double delay through feedback)
+        H11 = 1 / den
+        H12 = b1 * z_n / den
+        H21 = b2 * z_n / den
+        H22 = b1 * b2 * z_n * z_n / den
         
         Y1 = H11 * X[:, 0:1] + H12 * X[:, 1:2]
         Y2 = H21 * X[:, 0:1] + H22 * X[:, 1:2]
         
         Y = torch.cat([Y1, Y2], dim=1)
-        # y = torch.fft.irfft(Y, n=x_padded.shape[-1])[:, :, max_delay_samples:]
         y = torch.fft.irfft(Y, n=fft_size)
         y = y[..., max_delay_samples:max_delay_samples + x.shape[-1]]
         

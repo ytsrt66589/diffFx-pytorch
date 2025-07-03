@@ -4,8 +4,7 @@ from typing import Dict, Union
 
 
 class SendProc(nn.Module):
-    """
-    A neural network module that implements a parallel processing (send) effect.
+    """A neural network module that implements a parallel processing (send) effect.
     
     The SendProc applies a processor in parallel to the input signal and mixes the processed
     signal with the original input. This is commonly used in audio processing for effects

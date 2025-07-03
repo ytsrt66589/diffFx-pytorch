@@ -1,9 +1,11 @@
 # diffFx-pytorch
 
+![image info](./assets/logo.jpg)
+
 A PyTorch-based library for differentiable audio effects processing, enabling deep learning integration with professional audio processing algorithms.
 
 
-Disclaimer: This is my personal practice project to understand audio effect processors and is designed for deep learning frameworks. Several excellent libraries already exist, such as [GRAFX](https://github.com/sh-lee97/grafx), [dasp-pytorch](https://github.com/csteinmetz1/dasp-pytorch), [NablAFx](https://arxiv.org/abs/2502.11668), and [torchcomp](https://github.com/DiffAPF/torchcomp). Some of my code is inspired by these libraries, and I'm grateful to their developers for implementing several fundamental processors. My core extension will be developing human-interpretable effect processors, where the parameters of each processor can be easily understood by humans. Current code is not fully test yet, be careful to use !!!!!!!!!!! 
+Several excellent libraries already exist, such as [GRAFX](https://github.com/sh-lee97/grafx), [dasp-pytorch](https://github.com/csteinmetz1/dasp-pytorch), [NablAFx](https://arxiv.org/abs/2502.11668), and [torchcomp](https://github.com/DiffAPF/torchcomp). Some of my code is inspired by these libraries, and I'm grateful to their developers for implementing several fundamental processors. My core extension will be developing human-interpretable effect processors, where the parameters of each processor can be easily understood by humans. 
 
 [Doc](https://difffx-pytorch.readthedocs.io/en/latest/)
 ## Overview
@@ -13,7 +15,7 @@ Disclaimer: This is my personal practice project to understand audio effect proc
 
 ## Installation
 
-(Haven't upload to pypi, so you can only try install via this repo)
+
 ```bash
 pip install diffFx-pytorch
 ```
@@ -89,27 +91,24 @@ Check [examples/processors/notebook](examples/processors/notebook) to see how ea
 ## Features
 ### Implemented Effects 🎛️ 
 - **Utilities**
-  - [x] Send 
-  - [x] Mid/Side Processing 
+  - [] Send 
+  - [] Mid/Side Processing 
 - **Linear Gain**
   - [x] Gain 
-  - [] Fade in/out
 - **EQ**
   - [x] ToneStack
   - [x] Graphic Equalizer
   - [x] Parametric Equalizer
-  - [] Dynamic EQ
 - **Dynamics**
   - [x] Compressor 
   - [x] Multi-band Compressor
   - [x] Limiter
   - [x] Multi-band Limiter
   - [x] Expander
-  - [x] Multi-band Expander
+  - [] Multi-band Expander
   - [x] Noise Gate
-  - [x] Multi-band Noise Gate
-  - [] Transient Shaper 
-  - [] Multi-band Transient Shaper
+  - [] Multi-band Noise Gate
+  - [] Deesser
 - **Delay**
   - [x] Basic Delay 
   - [x] Feedback Basic Delay
@@ -119,8 +118,8 @@ Check [examples/processors/notebook](examples/processors/notebook) to see how ea
 - **Spatial**
   - [x] Stereo Panning
   - [x] Stereo Widener
-  - [x] Stereo Imager (Multi-band Widener)
-  - [x] Stereo Enhancer (Haas Effect)
+  - [x] Multi-band Stereo Widener
+  - [x] Stereo Enhancer 
 - **Modulation**
   - [x] Chorus
   - [x] Multi-voice Chorus
@@ -129,12 +128,8 @@ Check [examples/processors/notebook](examples/processors/notebook) to see how ea
   - [x] Feedback Flanger
   - [x] Stereo Flanger 
   - [x] Phaser 
-  - [] AutoWah 
-  - [] Tremelo 
-  - [] Ring Modulation
 - **Reverb**
-  - [] ConvIR Reverb
-  - [] Noise Shape Reverb
+  - [x] Noise Shape Reverb
   - [] Feedback Delay Network (FDN)
 - **Distortion (Nonlinear)**
   - [x] TanH

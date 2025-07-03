@@ -120,9 +120,9 @@ class Chorus(ProcessorsBase):
             rate: LFO modulation rate (0.1 to 10.0 Hz)
             depth: Modulation intensity (0.0 to 0.25)
             mix: Wet/dry balance (0.0 to 1.0)
-        """
+        """ 
         self.params = {
-            'delay_ms': EffectParam(min_val=5.0, max_val=40.0),    # Increased range
+            'delay_ms': EffectParam(min_val=10.0, max_val=25.0),    # Increased range
             'rate': EffectParam(min_val=0.1, max_val=10.0),         # More musical range
             'depth': EffectParam(min_val=0.0, max_val=0.25),        # Full range
             'mix': EffectParam(min_val=0.0, max_val=1.0)

@@ -2,7 +2,7 @@ import torch
 from typing import Dict, Union
 from ..base import EffectParam
 from ..core.envelope import Ballistics
-from ..core.utils import ms_to_z_alpha
+from ..core.utils import ms_to_alpha
 from .compressor import Compressor, MultiBandCompressor
 
 # Limiter 
@@ -21,7 +21,7 @@ class Limiter(Compressor):
         knee_db: Width of the transition region (0 to 1 dB)
         attack_ms: Time taken to react to increases in level (0.1 to 1.0 ms)
         release_ms: Time taken to react to decreases in level (5 to 500 ms)
-        makeup_db: Gain applied after limiting (-24 to 24 dB)
+        makeup_db: Gain applied after limiting (-12 to 12 dB)
 
     Note:
         - Uses hard-knee characteristic for precise limiting
@@ -44,31 +44,16 @@ class Limiter(Compressor):
         
         # Limiter specific configuration
         self.knee_type = "hard"
-        self.smoothing_type = "ballistics"
-        # Initialize the original filter implementations
-        self.ballistics = Ballistics() # for smoothing 
+        self.smooth_filter = Ballistics() # for smoothing 
         
     def _register_default_parameters(self):
-        """Register default parameter ranges for the limiter.
-    
-        Sets up the following parameters with their ranges:
-            - threshold_db: Threshold level (-60 to 0 dB)
-            - ratio: Limiting ratio (20 to 100)
-            - knee_db: Knee width (0 to 1 dB)
-            - attack_ms: Attack time (0.1 to 1.0 ms)
-            - release_ms: Release time (5 to 500 ms)
-            - makeup_db: Makeup gain (-12 to 12 dB)
-            
-        Note:
-            Parameter ranges are more extreme than standard compression
-            to achieve limiting behavior.
-        """
+        
         self.params = {
             'threshold_db': EffectParam(min_val=-60.0, max_val=0.0),
             'ratio': EffectParam(min_val=20.0, max_val=100.0),
             'knee_db': EffectParam(min_val=0.0, max_val=1.0),
             'attack_ms': EffectParam(min_val=0.1, max_val=1.0),
-            'release_ms': EffectParam(min_val=5.0, max_val=500.0),
+            'release_ms': EffectParam(min_val=50.0, max_val=320.0),
             'makeup_db': EffectParam(min_val=-12.0, max_val=12.0)
         }
         
@@ -154,7 +139,7 @@ class MultiBandLimiter(MultiBandCompressor):
         super().__init__(sample_rate, param_range, num_bands)
         # Limiter specific configuration
         self.knee_type = "hard"
-        self.smoothing_type = "ballistics"
+        self.smooth_filter = Ballistics() # for smoothing 
         
     def _register_default_parameters(self):
         """Register default parameter ranges for the multi-band limiter.
@@ -193,59 +178,54 @@ class MultiBandLimiter(MultiBandCompressor):
             max_freq = min(20000.0, min_freq * 100)
             self.params[f'crossover{i}_freq'] = EffectParam(min_val=min_freq, max_val=max_freq)
     
-    def _process_band(self, x: torch.Tensor, band_params: Dict[str, torch.Tensor]) -> torch.Tensor:
-        """Process a single frequency band with limiting.
+    # def _process_band(self, x: torch.Tensor, band_params: Dict[str, torch.Tensor]) -> torch.Tensor:
+    #     """Process a single frequency band with limiting.
         
-        Args:
-            x (torch.Tensor): Input audio for this band. 
-                Shape: (batch, channels, samples)
-            band_params (Dict[str, torch.Tensor]): Limiting parameters for this band.
-                Must contain:
-                    - threshold_db: Threshold level in dB
-                    - ratio: Limiting ratio
-                    - knee_db: Knee width in dB
-                    - attack_ms: Attack time in ms
-                    - release_ms: Release time in ms
-                    - makeup_db: Makeup gain in dB
+    #     Args:
+    #         x (torch.Tensor): Input audio for this band. 
+    #             Shape: (batch, channels, samples)
+    #         band_params (Dict[str, torch.Tensor]): Limiting parameters for this band.
+    #             Must contain:
+    #                 - threshold_db: Threshold level in dB
+    #                 - ratio: Limiting ratio
+    #                 - knee_db: Knee width in dB
+    #                 - attack_ms: Attack time in ms
+    #                 - release_ms: Release time in ms
+    #                 - makeup_db: Makeup gain in dB
         
-        Returns:
-            torch.Tensor: Processed audio for this band.
-                Shape: (batch, channels, samples)
+    #     Returns:
+    #         torch.Tensor: Processed audio for this band.
+    #             Shape: (batch, channels, samples)
                 
-        Note:
-            Uses hard-knee limiting with very fast attack times
-            for precise peak control in each frequency band.
-        """
-        # Compute input energy and convert to dB
-        energy = x.square().mean(dim=-2)
-        level_db = 10 * torch.log10(energy + 1e-10)
+    #     Note:
+    #         Uses hard-knee limiting with very fast attack times
+    #         for precise peak control in each frequency band.
+    #     """
+    #     # Compute input energy and convert to dB
+    #     energy = x.square().mean(dim=-2)
+    #     level_db = 10 * torch.log10(energy + 1e-10)
         
-        # Convert time constants to z_alpha
-        if self.smoothing_type == "ballistics":
-            z_alpha = torch.stack([
-                ms_to_z_alpha(band_params['attack_ms'], self.sample_rate),
-                ms_to_z_alpha(band_params['release_ms'], self.sample_rate)
-            ], dim=-1)
-            smoothed_db = self.ballistics(level_db, z_alpha)
-        else:  # "iir"
-            avg_ms = (band_params['attack_ms'] + band_params['release_ms']) / 2
-            z_alpha = ms_to_z_alpha(avg_ms, self.sample_rate)
-            smoothed_db = self.iir_filter(level_db, z_alpha)
+    #     # Convert time constants to z_alpha
+    #     z_alpha = torch.stack([
+    #         ms_to_alpha(band_params['attack_ms'], self.sample_rate),
+    #         ms_to_alpha(band_params['release_ms'], self.sample_rate)
+    #     ], dim=-1)
+    #     smoothed_db = self.smooth_filter(level_db, z_alpha)
         
-        # Compute gain in dB with hard-knee limiting
-        gain_db = self._compute_gain(
-            smoothed_db,
-            band_params['threshold_db'],
-            band_params['ratio'],
-            band_params['knee_db']
-        )
+    #     # Compute gain in dB with hard-knee limiting
+    #     gain_db = self._compute_gain(
+    #         smoothed_db,
+    #         band_params['threshold_db'],
+    #         band_params['ratio'],
+    #         band_params['knee_db']
+    #     )
         
-        # Apply makeup gain
-        gain_db = gain_db + band_params['makeup_db'].unsqueeze(-1)
+    #     # Apply makeup gain
+    #     gain_db = gain_db + band_params['makeup_db'].unsqueeze(-1)
         
-        # Convert to linear gain and apply
-        gain_linear = torch.pow(10, gain_db / 20)
-        return gain_linear.unsqueeze(-2) * x
+    #     # Convert to linear gain and apply
+    #     gain_linear = torch.pow(10, gain_db / 20)
+    #     return gain_linear.unsqueeze(-2) * x
     
     def _compute_gain(self, level_db: torch.Tensor, threshold_db: torch.Tensor,
                      ratio: torch.Tensor, knee_db: torch.Tensor) -> torch.Tensor:

@@ -315,14 +315,6 @@ class Tonestack(ProcessorsBase):
             tuple: (Bs, As) where:
                 - Bs: Numerator coefficients for IIR filter. Shape: (batch, 4)
                 - As: Denominator coefficients for IIR filter. Shape: (batch, 4)
-                
-        Note:
-            The coefficients are computed in these stages:
-            1. Get component values from current preset (R1-R4, C1-C3)
-            2. Apply bass control scaling for improved response
-            3. Calculate analog domain coefficients (b1-b3, a0-a3)
-            4. Convert to digital domain using bilinear transform
-            5. Stack coefficients for IIR filtering
         """
         # Get component values
         R1, R2, R3, R4 = [self.preset[k] for k in ['R1', 'R2', 'R3', 'R4']]
@@ -410,7 +402,7 @@ class Tonestack(ProcessorsBase):
                 If provided, norm_params must be None.
 
         Returns:
-            torch.Tensor: Processed audio tensor of same shape as input
+            torch.Tensor: Processed audio tensor of same shape as input. Shape: (batch, channels, samples)
         """
         check_params(norm_params, dsp_params)
         

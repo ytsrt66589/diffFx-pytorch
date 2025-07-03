@@ -34,21 +34,13 @@ class BasicDelay(ProcessorsBase):
         - τ is the delay time in seconds
         - Phase is unwrapped to ensure continuous delay response
 
-    Processing Chain:
-        1. Zero-pad input for delay buffer
-        2. Convert to frequency domain
-        3. Calculate phase shift (z^-N term)
-        4. Apply phase shift to spectrum
-        5. Convert back to time domain
-        6. Mix processed signal with original
-
     Args:
         sample_rate (int): Audio sample rate in Hz
         param_range (Dict[str, EffectParam], optional): Parameter ranges.
 
     Parameters Details:
         delay_ms: Echo delay time
-            - Range: 0.1 to 1000.0 milliseconds
+            - Range: 10.0 to 1000.0 milliseconds
             - Controls time offset between original and delayed signal
             - Minimum value ensures stable processing
             - Maximum value set for practical buffer sizes
@@ -149,27 +141,23 @@ class BasicDelay(ProcessorsBase):
             int(torch.max(delay_ms) * self.sample_rate / 1000)
         )
         # Calculate FFT size (next power of 2 for efficiency)
-        fft_size = 2 ** int(np.ceil(np.log2(x.shape[-1] + max_delay_samples)))
+        fft_size = 2 ** int(torch.ceil(torch.log2(torch.tensor(x.shape[-1] + max_delay_samples))))
         # Pad input signal to FFT size
         pad_right = fft_size - (x.shape[-1] + max_delay_samples)
         x_padded = torch.nn.functional.pad(x, (max_delay_samples, pad_right))
-
-        # x_padded = torch.nn.functional.pad(x, (max_delay_samples, 0))
         
         # Convert to frequency domain
         X = torch.fft.rfft(x_padded, n=fft_size)
         
         # Phase calculation with unwrapping
-        freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate).to(x.device)
-        phase = -2 * np.pi * freqs * delay_ms.view(-1, 1, 1) / 1000
+        freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate, device=x.device)
+        phase = -2 * torch.pi * freqs * delay_ms.view(-1, 1, 1) / 1000
         phase = unwrap_phase(phase, dim=-1)
         
         # Apply phase shift
         X_delayed = X * torch.exp(1j * phase).to(X.dtype)
         
         # IFFT and trim padding
-        # x_delayed = torch.fft.irfft(X_delayed, n=x_padded.shape[-1])#[:, :, max_delay_samples:]
-        # Trim to match original input length
         x_delayed = torch.fft.irfft(X_delayed, n=fft_size)
         x_delayed = x_delayed[..., max_delay_samples:max_delay_samples + x.shape[-1]]
 
@@ -340,15 +328,15 @@ class BasicFeedbackDelay(ProcessorsBase):
             int(torch.max(delay_ms) * self.sample_rate / 1000)
         )
         # Calculate FFT size (next power of 2 for efficiency)
-        fft_size = 2 ** int(np.ceil(np.log2(x.shape[-1] + max_delay_samples)))
+        fft_size = 2 ** int(torch.ceil(torch.log2(torch.tensor(x.shape[-1] + max_delay_samples))))
         # Pad input signal to FFT size
         pad_right = fft_size - (x.shape[-1] + max_delay_samples)
         x_padded = torch.nn.functional.pad(x, (max_delay_samples, pad_right))
        
         # freq domain 
         X = torch.fft.rfft(x_padded, n=fft_size)
-        freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate).to(x.device)
-        phase = -2 * np.pi * freqs * delay_ms / 1000
+        freqs = torch.fft.rfftfreq(x_padded.shape[-1], 1/self.sample_rate, device=x.device)
+        phase = -2 * torch.pi * freqs * delay_ms / 1000
         phase = unwrap_phase(phase, dim=-1)
         z_n = torch.exp(1j * phase).to(X.dtype)
         

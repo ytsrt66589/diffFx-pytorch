@@ -1,10 +1,11 @@
 import torch 
 import torch.nn as nn
-from typing import Dict, Union
+import math 
+from typing import Dict, Union, List
 from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
-from ..core.envelope import TruncatedOnePoleIIRFilter, Ballistics
-from ..core.utils import ms_to_z_alpha
+from ..core.envelope import Ballistics
+from ..core.utils import ms_to_alpha
 from ..filters import LinkwitzRileyFilter
 
 class Compressor(ProcessorsBase):
@@ -98,7 +99,7 @@ class Compressor(ProcessorsBase):
             - Compensates for level reduction from compression
 
     Note:
-        The processor supports the following parameter ranges:
+        The processor supports the following parameter ranges (same as single-band Compressor):
             - threshold_db: Threshold level in dB (-60 to 0)
             - ratio: Compression ratio (1 to 20)
             - knee_db: Knee width in dB (0 to 12)
@@ -160,8 +161,7 @@ class Compressor(ProcessorsBase):
         self, 
         sample_rate = 44100, 
         param_range = None, 
-        knee_type = "quadratic", 
-        smooth_type = "ballistics"
+        knee_type = "hard"
     ):
         """Initialize the compressor.
 
@@ -177,16 +177,9 @@ class Compressor(ProcessorsBase):
         super().__init__(sample_rate, param_range)
         if knee_type not in ["hard", "quadratic", "exponential"]:
             raise ValueError("Invalid knee type, please choose hard, quadratic or exponential")
-        if smooth_type not in ["ballistics", "iir"]:
-            raise ValueError("Invalid smooth type, please choose ballistics or iir")
         
         self.knee_type = knee_type
-        self.smoothing_type = smooth_type
-        # Initialize the original filter implementations
-        if self.smoothing_type == "ballistics":
-            self.ballistics = Ballistics() # for smoothing 
-        else:
-            self.iir_filter = TruncatedOnePoleIIRFilter(16384)
+        self.smooth_filter = Ballistics() 
         
     def _register_default_parameters(self):
         """Register default parameter ranges for the compressor.
@@ -242,36 +235,55 @@ class Compressor(ProcessorsBase):
         else:
             params = dsp_params
         
+        bs, chs, seq_len = x.size()
+        
+        # Create side-chain from sum of channels
+        x_side = x.mean(dim=1, keepdim=True)
+        x_side = x_side.view(-1, 1, seq_len)
+        eff_bs = x_side.size(0)
+        
+        # Reshape parameters for broadcasting
+        threshold_db = params['threshold_db'].view(-1, 1, 1)
+        ratio = params['ratio'].view(-1, 1, 1)
+        attack_ms = params['attack_ms'].view(-1, 1, 1)
+        release_ms = params['release_ms'].view(-1, 1, 1)
+        knee_db = params['knee_db'].view(-1, 1, 1)
+        makeup_db = params['makeup_db'].view(-1, 1, 1)
         
         # Compute input energy and convert to dB
-        energy = x.square().mean(dim=-2)
-        level_db = 10 * torch.log10(energy + 1e-10)
+        eps = 1e-8
+        x_db = 20 * torch.log10(torch.abs(x_side).clamp(eps))
         
+        # Compute gain reduction using _compute_gain method
+        g_c = self._compute_gain(
+            x_db.squeeze(-2),  
+            threshold_db.squeeze(-1),
+            ratio.squeeze(-1),
+            knee_db.squeeze(-1)
+        )  
+        
+
         # Convert time constants to z_alpha
-        if self.smoothing_type == "ballistics":
-            z_alpha = torch.stack([
-                ms_to_z_alpha(params['attack_ms'], self.sample_rate),
-                ms_to_z_alpha(params['release_ms'], self.sample_rate)
-            ], dim=-1)
-            smoothed_db = self.ballistics(level_db, z_alpha)
-        else:  # "iir"
-            avg_ms = (params['attack_ms'] + params['release_ms']) / 2
-            z_alpha = ms_to_z_alpha(avg_ms, self.sample_rate)
-            smoothed_db = self.iir_filter(level_db, z_alpha)
-            
-        # Compute gain in dB
-        gain_db = self._compute_gain(
-            smoothed_db,
-            params['threshold_db'],
-            params['ratio'],
-            params['knee_db']
-        )
+        alpha = torch.stack([
+            ms_to_alpha(attack_ms.squeeze(-1), self.sample_rate),
+            ms_to_alpha(release_ms.squeeze(-1), self.sample_rate)
+        ], dim=-1).squeeze(-2)
+        g_c_smooth = self.smooth_filter(g_c.squeeze(-2), alpha).unsqueeze(-2)
+
+        # Add makeup gain in dB
+        g_s = g_c_smooth + makeup_db
         
-        gain_db = gain_db + params['makeup_db'].unsqueeze(-1)
-        # Convert to linear gain and apply
-        gain_linear = torch.pow(10, gain_db / 20)
-        return gain_linear.unsqueeze(-2) * x
-    
+        # Convert dB gains back to linear
+        g_lin = 10 ** (g_s / 20.0)
+        
+        # Apply time-varying gain
+        y = x * g_lin
+        
+        # Move channels back to the channel dimension
+        y = y.view(bs, chs, seq_len)
+        
+        return y
+
     def _compute_gain(self, level_db: torch.Tensor, threshold_db: torch.Tensor,
                      ratio: torch.Tensor, knee_db: torch.Tensor) -> torch.Tensor:
         """Compute compression gain based on knee type.
@@ -332,7 +344,7 @@ class Compressor(ProcessorsBase):
 
         return gain_db
 
-
+# MultiBand Compressor 
 # MultiBand Compressor 
 class MultiBandCompressor(ProcessorsBase):
     """Differentiable multi-band dynamic range compressor.
@@ -446,7 +458,7 @@ class MultiBandCompressor(ProcessorsBase):
             >>> norm_params = controller(features)  # Shape: [batch_size, 21]
             >>> output = mb_comp(input_audio, norm_params=norm_params)
     """
-    def __init__(self, sample_rate, param_range=None, num_bands=3, knee_type="quadratic", smooth_type="ballistics"):
+    def __init__(self, sample_rate, param_range=None, num_bands=3, knee_type="hard"):
         """Initialize the multi-band compressor.
 
         Args:
@@ -470,16 +482,9 @@ class MultiBandCompressor(ProcessorsBase):
         
         if knee_type not in ["hard", "quadratic", "exponential"]:
             raise ValueError("Invalid knee type, please choose hard, quadratic or exponential")
-        if smooth_type not in ["ballistics", "iir"]:
-            raise ValueError("Invalid smooth type, please choose ballistics or iir")
         
         self.knee_type = knee_type
-        self.smoothing_type = smooth_type
-        # Initialize the original filter implementations
-        if self.smoothing_type == "ballistics":
-            self.ballistics = Ballistics() # for smoothing 
-        else:
-            self.iir_filter = TruncatedOnePoleIIRFilter(16384)
+        self.smooth_filter = Ballistics() # for smoothing 
         
         # Create crossover filters
         self.crossovers = nn.ModuleList([
@@ -517,7 +522,7 @@ class MultiBandCompressor(ProcessorsBase):
                 f'{band_prefix}knee_db': EffectParam(min_val=0.0, max_val=12.0),
                 f'{band_prefix}attack_ms': EffectParam(min_val=1.0, max_val=500.0),
                 f'{band_prefix}release_ms': EffectParam(min_val=10.0, max_val=2000.0),
-                f'{band_prefix}makeup_db': EffectParam(min_val=-24.0, max_val=24.0)
+                f'{band_prefix}makeup_db': EffectParam(min_val=-12.0, max_val=12.0)
             })
         
         # Crossover frequencies between bands
@@ -624,35 +629,54 @@ class MultiBandCompressor(ProcessorsBase):
             3. Compute gain using knee characteristic
             4. Apply gain and makeup
         """
+        bs, chs, seq_len = x.size()
+        
+        # Create side-chain from sum of channels
+        x_side = x.mean(dim=1, keepdim=True)
+        x_side = x_side.view(-1, 1, seq_len)
+        eff_bs = x_side.size(0)
+        
+        # Reshape parameters for broadcasting
+        threshold_db = band_params['threshold_db'].view(-1, 1, 1)
+        ratio = band_params['ratio'].view(-1, 1, 1)
+        attack_ms = band_params['attack_ms'].view(-1, 1, 1)
+        release_ms = band_params['release_ms'].view(-1, 1, 1)
+        knee_db = band_params['knee_db'].view(-1, 1, 1)
+        makeup_db = band_params['makeup_db'].view(-1, 1, 1)
+        
         # Compute input energy and convert to dB
-        energy = x.square().mean(dim=-2)
-        level_db = 10 * torch.log10(energy + 1e-10)
+        eps = 1e-8
+        x_db = 20 * torch.log10(torch.abs(x_side).clamp(eps))
         
+        # Compute gain reduction using _compute_gain method
+        g_c = self._compute_gain(
+            x_db.squeeze(-2),  
+            threshold_db.squeeze(-1),
+            ratio.squeeze(-1),
+            knee_db.squeeze(-1)
+        )  
+        
+
         # Convert time constants to z_alpha
-        if self.smoothing_type == "ballistics":
-            z_alpha = torch.stack([
-                ms_to_z_alpha(band_params['attack_ms'], self.sample_rate),
-                ms_to_z_alpha(band_params['release_ms'], self.sample_rate)
-            ], dim=-1)
-            smoothed_db = self.ballistics(level_db, z_alpha)
-        else:  # "iir"
-            avg_ms = (band_params['attack_ms'] + band_params['release_ms']) / 2
-            z_alpha = ms_to_z_alpha(avg_ms, self.sample_rate)
-            smoothed_db = self.iir_filter(level_db, z_alpha)
+        alpha = torch.stack([
+            ms_to_alpha(attack_ms.squeeze(-1), self.sample_rate),
+            ms_to_alpha(release_ms.squeeze(-1), self.sample_rate)
+        ], dim=-1).squeeze(-2)
+        g_c_smooth = self.smooth_filter(g_c.squeeze(-2), alpha).unsqueeze(-2)
+
+        # Add makeup gain in dB
+        g_s = g_c_smooth + makeup_db
         
-        # Compute gain in dB
-        gain_db = self._compute_gain(
-            smoothed_db,
-            band_params['threshold_db'],
-            band_params['ratio'],
-            band_params['knee_db']
-        )
+        # Convert dB gains back to linear
+        g_lin = 10 ** (g_s / 20.0)
         
-        gain_db = gain_db + band_params['makeup_db'].unsqueeze(-1)
+        # Apply time-varying gain
+        y = x * g_lin
         
-        # Convert to linear gain and apply
-        gain_linear = torch.pow(10, gain_db / 20)
-        return gain_linear.unsqueeze(-2) * x
+        # Move channels back to the channel dimension
+        y = y.view(bs, chs, seq_len)
+        
+        return y
     
     def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None,
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
@@ -694,18 +718,19 @@ class MultiBandCompressor(ProcessorsBase):
         bands = []
         current_signal = x
         
-        bs, chs, seq = x.shape 
-        split_size = chs  
-        
-        # Apply crossovers in series
+        # Apply crossovers in series to split bands
         for i, crossover in enumerate(self.crossovers):
-            lh = crossover.process(current_signal, norm_params=None, dsp_params={
-                'frequency': params[f'crossover{i}_freq']
-            })
-            low, high = torch.split(lh, (split_size,split_size), -2)
+            # Get separate low and high outputs from the crossover
+            low, high = crossover.get_separate_outputs(
+                current_signal, 
+                norm_params=None, 
+                dsp_params={'frequency': params[f'crossover{i}_freq']}
+            )
             bands.append(low)
             current_signal = high
-        bands.append(current_signal)  # Add the final high band
+        
+        # Add the final high band
+        bands.append(current_signal)
         
         # Process each band with compression
         processed_bands = []
@@ -720,4 +745,3 @@ class MultiBandCompressor(ProcessorsBase):
         
         # Sum all bands
         return sum(processed_bands)
-

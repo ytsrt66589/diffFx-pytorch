@@ -1,9 +1,9 @@
-Mid/Side Processing & Send
+MS Processing & Send
 =================
 
-This section covers several types of mid/side processing and send effects.
+This section covers mid/side processing and send effects.
 
-Mid/Side Processing
+MSProcessing
 ------------------
 
 .. autoclass:: diffFx_pytorch.processors.utilities.MidSideProc

@@ -80,23 +80,26 @@ class Ballistics(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, input_signals, z_alpha):
+    def forward(self, input_signals, alpha):
         r"""
         Processes input audio with the processor and given coefficients.
 
         Args:
             input_signals (:python:`FloatTensor`, :math:`B \times L`):
                 A batch of input audio signals.
-            z_alpha (:python:`FloatTensor`, :math:`B \times 2`):
+            alpha (:python:`FloatTensor`, :math:`B \times 2`):
                 A batch of attack and release coefficients stacked in the last dimension.
 
         Returns:
             :python:`FloatTensor`: A batch of smoothed signals of shape :math:`B \times L`.
         """
-        ts = torch.sigmoid(z_alpha)
-        zi = torch.ones(input_signals.shape[0], device=input_signals.device)
+        ts = alpha #torch.sigmoid(z_alpha)
+        #zi = torch.ones(input_signals.shape[0], device=input_signals.device)
+        zi = torch.zeros(input_signals.shape[0], device=input_signals.device)
         at, rt = ts[..., 0], ts[..., 1]
+        
         smoothed = compressor_core(input_signals, zi, at, rt)
         return smoothed
     
     
+

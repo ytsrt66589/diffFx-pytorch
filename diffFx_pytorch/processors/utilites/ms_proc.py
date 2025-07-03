@@ -3,8 +3,7 @@ import torch.nn as nn
 from typing import Dict, Union
 
 class MidSideProc(nn.Module):
-    """
-    A neural network module that processes audio signals using the Mid-Side (M/S) technique.
+    """A neural network module that processes audio signals using the Mid-Side (M/S) technique.
     
     The Mid-Side processing technique splits a stereo signal into mid (sum) and side (difference)
     components, processes them separately, and then recombines them back into stereo.
