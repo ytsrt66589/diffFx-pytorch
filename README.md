@@ -6,8 +6,7 @@
 
 [![Documentation](https://img.shields.io/badge/docs-readthedocs-da282a?style=flat
 )](https://difffx-pytorch.readthedocs.io/en/latest/) 
-[![pypi](https://img.shields.io/badge/pypi-v0.0.1-orange?style=flat
-)](https://pypi.org/project/diffFx-pytorch/)
+[![pypi](https://img.shields.io/badge/pypi-v0.0.2-orange?style=flat)](https://pypi.org/project/diffFx-pytorch/)
 
 
 

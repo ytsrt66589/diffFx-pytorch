@@ -10,7 +10,7 @@ URL = "https://github.com/ytsrt66589/diffFx-pytorch"
 EMAIL = "ytsrt66589@gmail.com"
 AUTHOR = "Yen-Tung (Arthur) Yeh"
 REQUIRES_PYTHON = ">=3.10.0"
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 HERE = Path(__file__).parent
 
