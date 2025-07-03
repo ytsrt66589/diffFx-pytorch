@@ -5,20 +5,14 @@ import numpy as np
 from typing import Dict, List, Tuple, Union, Optional
 from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
-from torchlpc import sample_wise_lpc
 from ..filters import BiquadFilter
 
 import torch
 from torch import Tensor as T
 
-# Phaser 
-# > Depth 
-# > Width 
-# > Feedback 
-# > LFO Frequency 
+
 class Phaser(ProcessorsBase):
     """Simple differentiable phaser using cascaded all-pass biquad filters."""
-
     def __init__(self, sample_rate=44100, param_range=None, num_stages=4):
         super().__init__(sample_rate, param_range)
         self.num_stages = num_stages
@@ -49,10 +43,9 @@ class Phaser(ProcessorsBase):
             stage_params = {
                 'frequency': params['frequency'],
                 'q_factor': params['q_factor'],
-                'gain_db': torch.zeros_like(params['frequency'])  # Not used for all-pass
+                'gain_db': torch.zeros_like(params['frequency'])  
             }
             wet = stage(wet, None, dsp_params=stage_params)
-            # Feedback: add a portion of the previous output to the input
             wet = wet + feedback * x
 
         mix = params['mix'].view(-1, 1, 1)

@@ -1,4 +1,5 @@
 import torch 
+import numpy as np 
 from typing import Dict, Union
 from enum import Enum
 from ..base_utils import check_params
@@ -215,90 +216,27 @@ class Tonestack(ProcessorsBase):
                 - CRUNCH: Hughes&Kettner
                 - GIBSON: GS12 Reverbrocket
                 - ENGL: Engl
-
-    Parameters Details:
-        bass: Low frequency control
-            - Range: 0.0 to 1.0
-            - Higher values boost low frequencies
-        mid: Middle frequency control
-            - Range: 0.0 to 1.0
-            - Controls presence of middle frequencies
-        treble: High frequency control
-            - Range: 0.0 to 1.0
-            - Higher values boost high frequencies
-
-    Note:
-        The processor supports a collection of presets modeling famous guitar amplifier circuits
-        including Fender, Marshall, Vox, and other manufacturers. Each preset defines specific
-        component values that determine the characteristic sound of that amplifier model.
-
-    Warning:
-        When using with neural networks:
-            - norm_params must be in range [0, 1]
-            - Parameters will be automatically mapped to their ranges
-            - Ensure your network output is properly normalized (e.g., using sigmoid)
-            - Parameter order must match _register_default_parameters()
-
-    Examples:
-        Basic DSP Usage:
-            >>> # Create a tonestack with Fender Bassman preset
-            >>> tonestack = Tonestack(
-            ...     sample_rate=44100,
-            ...     preset="bassman"
-            ... )
-            >>> # Process audio with dsp parameters
-            >>> output = tonestack(input_audio, dsp_params={
-            ...     'bass': 0.7,
-            ...     'mid': 0.5,
-            ...     'treble': 0.6
-            ... })
-
-        Neural Network Control:
-            >>> # 1. Simple parameter prediction
-            >>> class TonestackController(nn.Module):
-            ...     def __init__(self, input_size, num_params):
-            ...         super().__init__()
-            ...         self.net = nn.Sequential(
-            ...             nn.Linear(input_size, 32),
-            ...             nn.ReLU(),
-            ...             nn.Linear(32, num_params),
-            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
-            ...         )
-            ...     
-            ...     def forward(self, x):
-            ...         return self.net(x)
-            >>> 
-            >>> # Initialize controller
-            >>> num_params = tonestack.count_num_parameters()  # 3 parameters
-            >>> controller = TonestackController(input_size=16, num_params=num_params)
-            >>> 
-            >>> # Process with features
-            >>> features = torch.randn(batch_size, 16)  # Audio features
-            >>> norm_params = controller(features)
-            >>> output = tonestack(input_audio, norm_params=norm_params)
     """
-    def __init__(self, sample_rate=44100, param_range=None, preset='bassman'):
+    def __init__(self, sample_rate=44100, param_range=None, preset='FENDER_BLUES'):
         super().__init__(sample_rate, param_range)
         self.filter = IIRFilter(order=3, backend='fsm')  # Third order filter
         self.preset = TonestackPreset[preset.upper()].value
         
+        freq_range=(80, 8000)
+        self.freq_range = freq_range
+        self.n_fft = 2048
+        self.freqs = torch.fft.rfftfreq(self.n_fft, 1/sample_rate)
+        self.freq_mask = (self.freqs >= freq_range[0]) & (self.freqs <= freq_range[1])
+        
     def _register_default_parameters(self):
-        """Register default parameter ranges for the tonestack.
-
-        Sets up the following parameters with their ranges:
-            - bass: Low frequency control (0 to 1)
-            - mid: Middle frequency control (0 to 1)
-            - treble: High frequency control (0 to 1)
-            
-        Each control maps to a normalized range that interacts with the circuit 
-        component values defined by the chosen preset.
-        """
+        """Register default parameter ranges for the tonestack."""
         self.params = {
             'bass': EffectParam(min_val=0.0, max_val=1.0),
             'mid': EffectParam(min_val=0.0, max_val=1.0),
             'treble': EffectParam(min_val=0.0, max_val=1.0)
         }
-        
+    
+    
     def _calculate_coefficients(self, t: torch.Tensor, m: torch.Tensor, l: torch.Tensor) -> tuple:
         """Calculate filter coefficients based on control values and component values.
 
@@ -375,18 +313,57 @@ class Tonestack(ProcessorsBase):
         As = torch.stack([A0, A1, A2, A3], dim=-1)
         
         return Bs, As
+    
+    def _calculate_frequency_response(self, Bs: torch.Tensor, As: torch.Tensor) -> torch.Tensor:
+        """Calculate the frequency response of the IIR filter.
         
+        Args:
+            Bs: Numerator coefficients, shape (batch, 4)
+            As: Denominator coefficients, shape (batch, 4)
+            
+        Returns:
+            Complex frequency response, shape (batch, n_freq_bins)
+        """
+        batch_size = Bs.shape[0]
+        device = Bs.device
+        
+        # Create frequency grid
+        freqs = self.freqs.to(device)
+        omega = 2 * np.pi * freqs / self.sample_rate
+        z = torch.exp(1j * omega).unsqueeze(0).expand(batch_size, -1)
+        z_powers = torch.stack([
+            torch.ones_like(z),
+            1/z,
+            1/(z**2),
+            1/(z**3)
+        ], dim=-1)  # (batch, n_freq, 4)
+        numerator = torch.sum(Bs.unsqueeze(1) * z_powers, dim=-1)  # (batch, n_freq)
+        denominator = torch.sum(As.unsqueeze(1) * z_powers, dim=-1)  # (batch, n_freq)
+        
+        H = numerator / denominator
+        return H
+    
+    def _calculate_gain_compensation(self, Bs: torch.Tensor, As: torch.Tensor) -> torch.Tensor:
+        """Calculate gain compensation based on frequency response analysis."""
+        H = self._calculate_frequency_response(Bs, As)
+        H_magnitude = torch.abs(H)
+        H_in_range = H_magnitude[:, self.freq_mask]
+        rms_gain = torch.sqrt(torch.mean(H_in_range**2, dim=1))
+        compensation = 1.0 / (rms_gain + 1e-8)  
+        compensation = torch.clamp(compensation, 0.1, 10.0)  
+        return compensation
+    
     def process(
         self, 
         x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None
     ) -> torch.Tensor:
         """Process input signal through the tonestack.
         
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                     - 'bass': Low frequency control (0 to 1)
                     - 'mid': Mid frequency control (0 to 1)
@@ -399,28 +376,23 @@ class Tonestack(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input. Shape: (batch, channels, samples)
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
             
-        # Get control values
-        t = params['treble']
-        m = params['mid']
-        l = params['bass']
-        
-        # Calculate filter coefficients
-        Bs, As = self._calculate_coefficients(t, m, l)
-        
-        # Apply IIR filter
+        Bs, As = self._calculate_coefficients(params['treble'], params['mid'], params['bass'])
         y = self.filter(x, Bs, As)
+        
+        gain_compensation = self._calculate_gain_compensation(Bs, As).unsqueeze(-1).unsqueeze(-1)
+        y = y * gain_compensation
         
         return y
 

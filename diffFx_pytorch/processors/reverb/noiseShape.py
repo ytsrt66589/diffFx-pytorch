@@ -7,7 +7,6 @@ from typing import Dict, List, Tuple, Union
 from functools import partial
 from ..base import ProcessorsBase, EffectParam
 from ..base_utils import check_params
-from ..core.fir import FIRConvolution
 
 
 def octave_band_filterbank(num_taps: int, sample_rate: float):
@@ -80,112 +79,11 @@ class NoiseShapedReverb(ProcessorsBase):
         - d_i: Band decay rate
         - n_i(t): Bandpass filtered white noise
         - mix: Wet/dry balance
-    
-    Args:
-        sample_rate (int): Audio sample rate in Hz. Defaults to 44100.
-        num_samples (int): Number of samples for IR generation. Defaults to 65536.
-        num_bandpass_taps (int): Number of filter taps for bandpass filters. Must be odd. Defaults to 1023.
-    
-    Attributes:
-        sample_rate (int): Audio sample rate in Hz
-        num_samples (int): IR length in samples
-        num_bandpass_taps (int): Bandpass filter length
-        num_bands (int): Number of octave bands (12)
-    
-    Parameters Details:
-        band0_gain to band11_gain: Gain for each octave band
-            - Range: 0.0 to 1.0
-            - Controls the level of each frequency band in the reverb
-            - Band 0: 31.5 Hz, Band 11: 16 kHz
-            
-        band0_decay to band11_decay: Decay rate for each octave band
-            - Range: 0.0 to 1.0
-            - Controls how quickly each band decays
-            - Higher values = faster decay
-            
-        mix: Wet/dry balance
-            - Range: 0.0 to 1.0
-            - 0.0: Only dry signal
-            - 1.0: Only reverberated signal
-    
-    Warning:
-        When using with neural networks:
-            - norm_params must be in range [0, 1]
-            - Parameters will be automatically mapped to ranges
-            - Ensure network output is properly normalized (e.g., using sigmoid)
-            - Parameter order must match _register_default_parameters()
-    
-    Examples:
-        Basic DSP Usage:
-            >>> # Create noise-shaped reverb
-            >>> reverb = NoiseShapedReverb(
-            ...     sample_rate=44100,
-            ...     num_samples=65536
-            ... )
-            >>> # Process with musical settings
-            >>> output = reverb(input_audio, dsp_params={
-            ...     'band0_gain': 0.8,
-            ...     'band1_gain': 0.8,
-            ...     'band2_gain': 0.8,
-            ...     'band3_gain': 0.8,
-            ...     'band4_gain': 0.8,
-            ...     'band5_gain': 0.8,
-            ...     'band6_gain': 0.8,
-            ...     'band7_gain': 0.8,
-            ...     'band8_gain': 0.8,
-            ...     'band9_gain': 0.8,
-            ...     'band10_gain': 0.8,
-            ...     'band11_gain': 0.8,
-            ...     'band0_decay': 0.3,
-            ...     'band1_decay': 0.3,
-            ...     'band2_decay': 0.3,
-            ...     'band3_decay': 0.3,
-            ...     'band4_decay': 0.3,
-            ...     'band5_decay': 0.3,
-            ...     'band6_decay': 0.3,
-            ...     'band7_decay': 0.3,
-            ...     'band8_decay': 0.3,
-            ...     'band9_decay': 0.3,
-            ...     'band10_decay': 0.3,
-            ...     'band11_decay': 0.3,
-            ...     'mix': 0.3
-            ... })
-    
-        Neural Network Control:
-            >>> # Simple parameter prediction
-            >>> class ReverbController(nn.Module):
-            ...     def __init__(self, input_size, num_params):
-            ...         super().__init__()
-            ...         self.net = nn.Sequential(
-            ...             nn.Linear(input_size, 64),
-            ...             nn.ReLU(),
-            ...             nn.Linear(64, num_params),
-            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
-            ...         )
-            ...     
-            ...     def forward(self, x):
-            ...         return self.net(x)
-            >>> 
-            >>> # Initialize controller
-            >>> reverb = NoiseShapedReverb(sample_rate=44100)
-            >>> num_params = reverb.count_num_parameters()  # 25 parameters
-            >>> controller = ReverbController(input_size=16, num_params=num_params)
-            >>> 
-            >>> # Process with features
-            >>> features = torch.randn(batch_size, 16)  # Audio features
-            >>> norm_params = controller(features)
-            >>> output = reverb(input_audio, norm_params=norm_params)
     """
     
     def __init__(self, sample_rate: int = 44100, num_samples: int = 65536, 
                  num_bandpass_taps: int = 1023):
-        """Initialize the noise-shaped reverb processor.
-        
-        Args:
-            sample_rate: Audio sample rate in Hz
-            num_samples: Number of samples for IR generation
-            num_bandpass_taps: Number of filter taps for bandpass filters (must be odd)
-        """
+        """Initialize the noise-shaped reverb processor."""
         self.num_samples = num_samples
         self.num_bandpass_taps = num_bandpass_taps
         self.num_bands = 12  # Now 12 bands: lowpass, 10 bandpass, highpass
@@ -205,15 +103,12 @@ class NoiseShapedReverb(ProcessorsBase):
         """
         self.params = {}
         
-        # Band gains (12 bands)
         for i in range(self.num_bands):
             self.params[f'band{i}_gain'] = EffectParam(min_val=0.0, max_val=1.0)
         
-        # Band decays (12 bands)
         for i in range(self.num_bands):
             self.params[f'band{i}_decay'] = EffectParam(min_val=0.0, max_val=1.0)
         
-        # Mix parameter
         self.params['mix'] = EffectParam(min_val=0.0, max_val=1.0)
     
     def process(
@@ -243,61 +138,50 @@ class NoiseShapedReverb(ProcessorsBase):
         batch_size, num_channels, seq_len = x.shape
         device = x.device
         
-        # Ensure stereo processing
         if num_channels == 1:
             x = x.repeat(1, 2, 1)
             num_channels = 2
         
-        # Extract parameters
         band_gains = torch.stack([
             params[f'band{i}_gain'] for i in range(self.num_bands)
-        ], dim=1)  # (batch, num_bands)
+        ], dim=1)  
         
         band_decays = torch.stack([
             params[f'band{i}_decay'] for i in range(self.num_bands)
-        ], dim=1)  # (batch, num_bands)
+        ], dim=1)  
         
-        mix = params['mix'].view(-1, 1, 1)  # (batch, 1, 1)
+        mix = params['mix'].view(-1, 1, 1) 
         
-        # Move filters to device
-        filters = self.filters.to(device)  # (num_bands, 1, num_taps)
+
+        filters = self.filters.to(device)  
         
-        # Generate white noise for IR generation
+
         pad_size = self.num_bandpass_taps - 1
         wn = torch.randn(batch_size * 2, self.num_bands, self.num_samples + pad_size, device=device)
         
-        
-        # Filter white noise with each bandpass filter (depthwise)
         wn_filt = F.conv1d(
             wn,
-            filters,  # (num_bands, 1, num_taps)
+            filters, 
             groups=self.num_bands,
-            # padding=pad_size
-        )  # (batch*2, num_bands, num_samples)
+        )  
         wn_filt = wn_filt.view(batch_size, 2, self.num_bands, self.num_samples)
         
-        # Prepare gain/decay/envelope
-        band_gains = band_gains.view(batch_size, 1, self.num_bands, 1)  # (batch, 1, num_bands, 1)
-        band_decays = band_decays.view(batch_size, 1, self.num_bands, 1)  # (batch, 1, num_bands, 1)
-        t = torch.linspace(0, 1, steps=self.num_samples, device=device)  # (num_samples,)
+
+        band_gains = band_gains.view(batch_size, 1, self.num_bands, 1)  
+        band_decays = band_decays.view(batch_size, 1, self.num_bands, 1)  
+        t = torch.linspace(0, 1, steps=self.num_samples, device=device) 
         band_decays = (band_decays * 10.0) + 1.0
-        env = torch.exp(-band_decays * t.view(1, 1, 1, -1))  # (batch, 1, num_bands, num_samples)
-        wn_filt = wn_filt * env * band_gains  # (batch, 2, num_bands, num_samples)
+        env = torch.exp(-band_decays * t.view(1, 1, 1, -1))  
+        wn_filt = wn_filt * env * band_gains 
         
-        # Sum signals to create impulse response
-        ir = wn_filt.mean(dim=2, keepdim=True)  # (batch, 2, 1, num_samples)
-        # ir = ir.squeeze(2)  # (batch, 2, num_samples)
-        
-        # Convolve input with IR (per batch, per channel)
+        ir = wn_filt.mean(dim=2, keepdim=True) 
+
         x_pad = F.pad(x, (self.num_samples - 1, 0))
         
-        # Use vmap for efficient batch convolution
         try:
-            # Try using torch.vmap if available (PyTorch 2.0+)
             vconv1d = torch.vmap(partial(F.conv1d, groups=2), in_dims=0)
             y = vconv1d(x_pad, torch.flip(ir, dims=[-1]))
         except AttributeError:
-            # Fallback for older PyTorch versions
             y = torch.zeros_like(x)
             for b in range(batch_size):
                 y[b] = F.conv1d(
@@ -306,7 +190,6 @@ class NoiseShapedReverb(ProcessorsBase):
                     groups=2
                 )
         
-        # Create wet/dry mix
         y = (1 - mix) * x + mix * y
         
         return y

@@ -33,133 +33,28 @@ class ParametricEqualizer(ProcessorsBase):
         - Center frequency
         - Q factor (bandwidth/slope)
         - Gain setting
-
-    Args:
-        sample_rate (int): Audio sample rate in Hz
-        param_range (Dict[str, EffectParam], optional): Parameter ranges.
-        num_peak_filters (int): Number of independent peak filters. Defaults to 3.
-
-    Parameters Details:
-        Low Shelf Section:
-            - low_shelf_gain_db: Gain for low frequencies
-                - Range: -12.0 to 12.0 dB
-                - Controls bass boost/cut
-            - low_shelf_frequency: Corner frequency
-                - Range: 20.0 to 500.0 Hz
-                - Controls bass transition point
-            - low_shelf_q_factor: Slope control
-                - Range: 0.1 to 1.0
-                - Controls bass shelf slope
-
-        Peak Filter Sections (for each peak filter i):
-            - peak_i_gain_db: Gain for the band
-                - Range: -12.0 to 12.0 dB
-                - Controls midrange boost/cut
-            - peak_i_frequency: Center frequency
-                - Range: 20.0 to 20000.0 Hz
-                - Controls midrange center point
-            - peak_i_q_factor: Bandwidth control
-                - Range: 0.1 to 10.0
-                - Controls midrange bandwidth
-
-        High Shelf Section:
-            - high_shelf_gain_db: Gain for high frequencies
-                - Range: -12.0 to 12.0 dB
-                - Controls treble boost/cut
-            - high_shelf_frequency: Corner frequency
-                - Range: 5000.0 to 20000.0 Hz
-                - Controls treble transition point
-            - high_shelf_q_factor: Slope control
-                - Range: 0.1 to 1.0
-                - Controls treble shelf slope
-
-    Warning:
-        When using with neural networks:
-            - norm_params must be in range [0, 1]
-            - Parameters will be automatically mapped to their ranges
-            - Ensure your network output is properly normalized (e.g., using sigmoid)
-            - Parameter order must match _register_default_parameters()
-
-    Examples:
-        Basic DSP Usage:
-            >>> # Create a parametric EQ with 3 peak filters
-            >>> eq = ParametricEqualizer(
-            ...     sample_rate=44100,
-            ...     num_peak_filters=3
-            ... )
-            >>> # Process audio with dsp parameters
-            >>> params = {
-            ...     'low_shelf_gain_db': 6.0,
-            ...     'low_shelf_frequency': 100.0,
-            ...     'low_shelf_q_factor': 0.7,
-            ...     'peak_1_gain_db': -3.0,
-            ...     'peak_1_frequency': 1000.0,
-            ...     'peak_1_q_factor': 1.4,
-            ...     # ... additional peak filter parameters ...
-            ...     'high_shelf_gain_db': -2.0,
-            ...     'high_shelf_frequency': 8000.0,
-            ...     'high_shelf_q_factor': 0.7
-            ... }
-            >>> output = eq(input_audio, dsp_params=params)
-
-        Neural Network Control:
-            >>> # 1. Simple parameter prediction
-            >>> class ParametricEQController(nn.Module):
-            ...     def __init__(self, input_size, num_parameters):
-            ...         super().__init__()
-            ...         self.net = nn.Sequential(
-            ...             nn.Linear(input_size, 32),
-            ...             nn.ReLU(),
-            ...             nn.Linear(32, num_parameters),
-            ...             nn.Sigmoid()  # Ensures output is in [0,1] range
-            ...         )
-            ...     
-            ...     def forward(self, x):
-            ...         return self.net(x)
-            >>> 
-            >>> # Initialize controller
-            >>> eq = ParametricEqualizer(num_peak_filters=3)
-            >>> num_params = eq.count_num_parameters()  # 15 parameters for 3 peak filters
-            >>> controller = ParametricEQController(input_size=16, num_parameters=num_params)
-            >>> 
-            >>> # Process with features
-            >>> features = torch.randn(batch_size, 16)  # Audio features
-            >>> norm_params = controller(features)
-            >>> output = eq(input_audio, norm_params=norm_params)
     """
     def __init__(self, sample_rate, param_range = None, num_peak_filters=3):
         self.num_peak_filters = num_peak_filters
         super().__init__(sample_rate, param_range)
 
-        # Create peak filters
         self.peak_filters = [
             BiquadFilter(
                 sample_rate=self.sample_rate,
                 filter_type='pk'
             ) for _ in range(num_peak_filters)
         ]
-        
-        # Create low shelf and high shelf filters
         self.low_shelf_filter = BiquadFilter(
             sample_rate=self.sample_rate,
             filter_type='ls'
         )
-        
         self.high_shelf_filter = BiquadFilter(
             sample_rate=self.sample_rate,
             filter_type='hs'
         )
         
     def _register_default_parameters(self):
-        """Register parameters for all filter sections.
-        
-        Sets up parameter ranges for:
-            - Low shelf filter (gain, frequency, Q)
-            - Multiple peak filters (gain, frequency, Q for each)
-            - High shelf filter (gain, frequency, Q)
-            
-        Each parameter is registered with appropriate min/max values for its function.
-        """
+        """Register parameters for all filter sections."""
         self.params = {
             # Low shelf parameters
             'low_shelf_gain_db': EffectParam(min_val=-12.0, max_val=12.0),

@@ -25,41 +25,6 @@ class ProcessorsBase(nn.Module):
     Args:
         sample_rate (int): Audio sample rate in Hz. Defaults to 44100.
         param_range (Dict[str, EffectParam], optional): Optional parameter definitions to override or extend default parameters.
-
-    Attributes:
-        sample_rate (int): Sampling rate in Hz
-        params (Dict[str, EffectParam]): Registered effect parameters
-
-    Parameter Management:
-        Parameters are defined using EffectParam dataclass with:
-            - min_val: Minimum DSP value
-            - max_val: Maximum DSP value
-            - default: Optional default value
-
-    Example:
-        Basic Implementation:
-            >>> class MyEffect(ProcessorsBase):
-            ...     def _register_default_parameters(self):
-            ...         self.params = {
-            ...             'frequency': EffectParam(min_val=20.0, max_val=20000.0),
-            ...             'gain_db': EffectParam(min_val=-24.0, max_val=24.0)
-            ...         }
-            ...     
-            ...     def process(self, x, norm_params, dsp_params):
-            ...         # Implement effect processing here
-            ...         pass
-
-        Parameter Usage:
-            >>> effect = MyEffect(sample_rate=44100)
-            >>> # Using DSP parameters
-            >>> output = effect(input_audio, dsp_params={
-            ...     'frequency': 1000.0,  # Direct Hz value
-            ...     'gain_db': -6.0       # Direct dB value
-            ... })
-            >>> 
-            >>> # Using normalized parameters (e.g., from neural network)
-            >>> norm_params = torch.tensor([[0.5, 0.3]])  # [batch, num_params]
-            >>> output = effect(input_audio, norm_params=norm_params)
     """
     def __init__(self, sample_rate: int = 44100, param_range: Dict[str, EffectParam] = None):
         """Initialize the processor base.
@@ -89,21 +54,19 @@ class ProcessorsBase(nn.Module):
         assert tensor.shape[1] == len(self.params), f"Expected {len(self.params)} parameters, got {tensor.shape[1]}"
         return {name: tensor[:, i] for i, name in enumerate(self.params.keys())}
     
-    def map_parameters(self, norm_params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def map_parameters(self, nn_params: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """Maps normalized parameters (0-1) to DSP parameter ranges.
         
+        Linear interpolation is used for mapping: dsp_value = min_val + (max_val - min_val) * norm_value
+            
         Args:
-            norm_params: Dictionary of normalized parameter values
+            nn_params: Dictionary of normalized parameter values
             
         Returns:
             Dictionary of mapped DSP parameter values
-            
-        Note:
-            Linear interpolation is used for mapping:
-            dsp_value = min_val + (max_val - min_val) * norm_value
         """
         return {
-            name: param.min_val + (param.max_val - param.min_val) * norm_params[name]
+            name: param.min_val + (param.max_val - param.min_val) * nn_params[name]
             for name, param in self.params.items()
         }
 
@@ -125,20 +88,7 @@ class ProcessorsBase(nn.Module):
                               params_dict: Dict[str, float], 
                               batch_size: int = 1, 
                               device: Union[str, torch.device] = 'cpu') -> Dict[str, torch.Tensor]:
-        """Creates batched tensor parameters from scalar DSP values.
-        
-        Args:
-            params_dict: Dictionary of parameter names and scalar values
-            batch_size: Number of copies in batch
-            device: Target device for tensors
-            
-        Returns:
-            Dictionary of batched parameter tensors
-            
-        Raises:
-            KeyError: If parameter name not registered
-            ValueError: If value outside valid range
-        """
+        """Creates batched tensor parameters from scalar DSP values."""
         batched_params = {}
         
         for name, value in params_dict.items():
@@ -168,14 +118,14 @@ class ProcessorsBase(nn.Module):
     def forward(
         self, 
         x: torch.Tensor, 
-        norm_params: Union[torch.Tensor, None] = None, 
+        nn_params: Union[torch.Tensor, None] = None, 
         dsp_params: Union[Dict[str, Union[float, torch.Tensor]], None] = None
     ) -> torch.Tensor:
         """Process input with either normalized or DSP parameters.
         
         Args:
             x: Input audio tensor [batch, channels, samples]
-            norm_params: Optional normalized parameters tensor [batch, num_params]
+            nn_params: Optional normalized parameters tensor [batch, num_params]
             dsp_params: Optional DSP parameters dictionary
                 Each parameter can be:
                 - float/int: Single value for all batch items
@@ -188,9 +138,9 @@ class ProcessorsBase(nn.Module):
         batch_size = x.shape[0]
         params_dict, dsp_params_dict = None, None
         
-        if norm_params is not None: # 
-            assert len(norm_params.shape) == 2, "Expected 2D tensor" # Check if tensor is 2D [b, num_params]
-            params_dict = self._tensor_to_dict(norm_params)
+        if nn_params is not None: # 
+            assert len(nn_params.shape) == 2, "Expected 2D tensor" # Check if tensor is 2D [b, num_params]
+            params_dict = self._tensor_to_dict(nn_params)
         
         if dsp_params is not None:
             # Handle DSP parameters
@@ -226,14 +176,14 @@ class ProcessorsBase(nn.Module):
     def process(
         self, 
         x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ) -> torch.Tensor:
         """Process audio with audio effects.
         
         Args:
             x: Input audio tensor [batch, channels, samples]
-            norm_params: Optional dictionary of normalized parameters
+            nn_params: Optional dictionary of normalized parameters
             dsp_params: Optional dictionary of DSP parameters
             
         Returns:
