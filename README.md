@@ -18,8 +18,6 @@ Note: Several excellent libraries already exist, such as [GRAFX](https://github.
 
 
 ## Installation
-(Not yet supported, will update soon)
-
 ```bash
 pip install diffFx-pytorch
 ```

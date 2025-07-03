@@ -6,7 +6,7 @@ authors = [
     { name = "Yen-Tung (Arthur) Yeh" },
     { email = "ytsrt66589@gmail.com" },
 ]
-dependencies = ["torch", "numpy", "torchlpc>=0.4", "torchcomp", "torchaudio",  "scipy", "numba-cuda==0.4.0", "pynvjitlink-cu12"]
+dependencies = ["torch", "numpy", "torchaudio",  "torchlpc==0.6.0", "torchcomp", "scipy", "numba-cuda==0.4.0", "pynvjitlink-cu12"]
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache License 2.0"}
