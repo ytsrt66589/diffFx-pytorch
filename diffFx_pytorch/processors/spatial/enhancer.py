@@ -54,12 +54,12 @@ class StereoEnhancer(ProcessorsBase):
             'width': EffectParam(min_val=0.0, max_val=1.0)
         }
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the stereo enhancer.
         
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                 - 'delay_ms': Delay time for side signal (0 to 1)
                 - 'width': Stereo width enhancement (0 to 1)
@@ -71,7 +71,7 @@ class StereoEnhancer(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
@@ -79,10 +79,10 @@ class StereoEnhancer(ProcessorsBase):
         Raises:
             AssertionError: If input is not stereo (two channels)
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         

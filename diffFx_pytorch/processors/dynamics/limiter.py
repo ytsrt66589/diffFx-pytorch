@@ -25,18 +25,18 @@ class Limiter(Compressor):
             'makeup_db': EffectParam(min_val=-12.0, max_val=12.0)
         }
         
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """Process audio through the limiter.
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
             dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
-        return super().process(x, norm_params, dsp_params)
+        return super().process(x, nn_params, dsp_params)
 
 # MultiBand Limiter
 class MultiBandLimiter(MultiBandCompressor):
@@ -86,8 +86,8 @@ class MultiBandLimiter(MultiBandCompressor):
         
         return gain_db
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """Process audio through the multi-band limiter."""
-        return super().process(x, norm_params, dsp_params)
+        return super().process(x, nn_params, dsp_params)
 

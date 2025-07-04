@@ -76,12 +76,12 @@ class ParametricEqualizer(ProcessorsBase):
                 f'{peak_name}_q_factor': EffectParam(min_val=0.1, max_val=10.0),
             })
             
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the parametric equalizer.
 
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Dictionary with keys for each parameter:
                 - Low shelf: 'low_shelf_gain_db', 'low_shelf_frequency', 'low_shelf_q_factor'
                 - Peak filters: 'peak_X_gain_db', 'peak_X_frequency', 'peak_X_q_factor' for X in range(1, num_peak_filters+1)
@@ -95,15 +95,15 @@ class ParametricEqualizer(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input. Shape: (batch, channels, samples)
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
-        if norm_params is not None:
-            denorm_params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            denorm_params = self.map_parameters(nn_params)
             low_shelf_params = {
                 'gain_db': denorm_params['low_shelf_gain_db'],
                 'frequency': denorm_params['low_shelf_frequency'],

@@ -81,12 +81,12 @@ class Compressor(ProcessorsBase):
             'makeup_db': EffectParam(min_val=-12.0, max_val=12.0) 
         }
              
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the compressor.
 
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Dictionary with keys:
                 - 'threshold_db': Level at which compression begins (-60 to 0 dB)
                 - 'ratio': Amount of gain reduction above threshold (1 to 20)
@@ -103,15 +103,15 @@ class Compressor(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input. Shape: (batch, channels, samples)
         """
         # Process parameters
-        check_params(norm_params, dsp_params)
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        check_params(nn_params, dsp_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         
@@ -336,13 +336,13 @@ class MultiBandCompressor(ProcessorsBase):
         
         return y
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None,
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None,
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """Process input signal through the multi-band compressor.
     
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Dictionary with keys for each band i (0 to num_bands-1):
                 - f'band{i}_threshold_db': Level at which compression begins (-60 to 0 dB)
                 - f'band{i}_ratio': Amount of gain reduction above threshold (1 to 20)
@@ -361,14 +361,14 @@ class MultiBandCompressor(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
-        check_params(norm_params, dsp_params)
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        check_params(nn_params, dsp_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         
@@ -378,7 +378,7 @@ class MultiBandCompressor(ProcessorsBase):
         for i, crossover in enumerate(self.crossovers):
             low, high = crossover.get_separate_outputs(
                 current_signal, 
-                norm_params=None, 
+                nn_params=None, 
                 dsp_params={'frequency': params[f'crossover{i}_freq']}
             )
             bands.append(low)

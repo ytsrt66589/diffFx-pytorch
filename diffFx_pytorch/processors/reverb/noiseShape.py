@@ -114,24 +114,24 @@ class NoiseShapedReverb(ProcessorsBase):
     def process(
         self, 
         x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ) -> torch.Tensor:
         """Process input signal through noise-shaped reverberation.
         
         Args:
             x: Input audio tensor. Shape: (batch, channels, samples)
-            norm_params: Normalized parameters (0 to 1)
-            dsp_params: Direct DSP parameters. If provided, norm_params must be None.
+            nn_params: Normalized parameters (0 to 1)
+            dsp_params: Direct DSP parameters. If provided, nn_params must be None.
                 
         Returns:
             torch.Tensor: Reverberated audio tensor of same shape as input
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
         # Get parameters
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         

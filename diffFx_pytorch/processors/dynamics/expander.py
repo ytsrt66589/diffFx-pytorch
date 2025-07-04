@@ -72,13 +72,13 @@ class Expander(Compressor):
         rms = torch.sqrt(x_squared.clamp(eps))
         return 20 * torch.log10(rms.clamp(eps))
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
             

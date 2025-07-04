@@ -47,7 +47,7 @@ class Gain(ProcessorsBase):
                 - float/int: Single value applied to entire batch
                 - 0D tensor: Single value applied to entire batch
                 - 1D tensor: Batch of values matching input batch size
-                Parameters will be automatically expanded to match batch size and moved to input device if necessary. If provided, norm_params must be None.
+                Parameters will be automatically expanded to match batch size and moved to input device if necessary. If provided, nn_params must be None.
         
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input. Shape: (batch, channels, samples)

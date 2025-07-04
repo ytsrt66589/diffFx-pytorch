@@ -106,7 +106,7 @@ class NoiseGate(Expander):
 
     Warning:
         When using with neural networks:
-            - norm_params must be in range [0, 1]
+            - nn_params must be in range [0, 1]
             - Parameters will be automatically mapped to their DSP ranges
             - Ensure your network output is properly normalized (e.g., using sigmoid)
             - Parameter order must match _register_default_parameters()
@@ -150,8 +150,8 @@ class NoiseGate(Expander):
         >>> 
         >>> # Process with features
         >>> features = torch.randn(batch_size, 16)  # Audio features
-        >>> norm_params = controller(features)
-        >>> output = gate(input_audio, norm_params=norm_params)
+        >>> nn_params = controller(features)
+        >>> output = gate(input_audio, nn_params=nn_params)
     """
     def __init__(self, sample_rate=44100, param_range=None):
         """Initialize the noise gate.
@@ -217,12 +217,12 @@ class NoiseGate(Expander):
         
         return gain_db
 
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """Process input signal through the noise gate.
 
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Dictionary with keys:
                 - 'threshold_db': Level at which gating begins (-90 to -20 dB)
                 - 'ratio': Amount of attenuation below threshold (1 to 100)
@@ -238,12 +238,12 @@ class NoiseGate(Expander):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
-        return super().process(x, norm_params, dsp_params)
+        return super().process(x, nn_params, dsp_params)
             
         
 
@@ -356,8 +356,8 @@ class NoiseGate(Expander):
 #             >>> 
 #             >>> # Process with predicted parameters
 #             >>> controller = MultiBandNoiseGateNet(input_size=16, num_bands=3)
-#             >>> norm_params = controller(features)  # Shape: [batch_size, 17]
-#             >>> output = mb_gate(input_audio, norm_params=norm_params)
+#             >>> nn_params = controller(features)  # Shape: [batch_size, 17]
+#             >>> output = mb_gate(input_audio, nn_params=nn_params)
 #     """
 #     def __init__(self, sample_rate=44100, param_range=None, num_bands=3, knee_type="hard", smooth_type="ballistics"):
 #         """Initialize the multi-band noise gate.

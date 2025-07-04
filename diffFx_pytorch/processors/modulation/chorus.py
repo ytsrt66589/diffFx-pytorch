@@ -54,14 +54,14 @@ class Chorus(ProcessorsBase):
     def process(
         self, 
         x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ) -> torch.Tensor:
         """Process input signal through the chorus effect.
     
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                     - 'delay_ms': Base delay time (0 to 1)
                     - 'rate': LFO frequency (0 to 1)
@@ -75,14 +75,14 @@ class Chorus(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
-        check_params(norm_params, dsp_params)
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        check_params(nn_params, dsp_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         
@@ -157,14 +157,14 @@ class MultiVoiceChorus(ProcessorsBase):
     def process(
         self, 
         x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ) -> torch.Tensor:
         """Process input signal through the multi-voice chorus.
     
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                     - 'delay_ms': Base delay time (0 to 1)
                     - 'rate': LFO frequency (0 to 1)
@@ -179,15 +179,15 @@ class MultiVoiceChorus(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         # Set proper configuration
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         
@@ -288,7 +288,7 @@ class StereoChorus(ProcessorsBase):
     def process(
         self, 
         x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ) -> torch.Tensor:
         """Process input signal through the stereo chorus.
@@ -297,7 +297,7 @@ class StereoChorus(ProcessorsBase):
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
                 Accepts both mono (channels=1) and stereo (channels=2) input.
                 Mono input will be automatically converted to stereo.
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                     - 'delay_ms': Base delay time (0 to 1)
                     - 'rate': LFO frequency (0 to 1)
@@ -314,15 +314,15 @@ class StereoChorus(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         # Set proper configuration
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
             

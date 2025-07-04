@@ -72,27 +72,27 @@ class ButterworthFilter(ProcessorsBase):
         }
     
     def process(self, x: torch.Tensor, 
-                norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+                nn_params: Union[Dict[str, torch.Tensor], None] = None, 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """
         Process input signal through the Butterworth filter.
         
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
             dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
                 
         Returns:
             torch.Tensor: Filtered audio tensor of same shape as input
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
         # Get cutoff frequency
         if dsp_params is not None:
             frequency = dsp_params['frequency']
         else:
-            params = self.map_parameters(norm_params)
+            params = self.map_parameters(nn_params)
             frequency = params['frequency']
         
         # Ensure frequency is properly shaped
@@ -191,52 +191,52 @@ class LinkwitzRileyFilter(ProcessorsBase):
         }
     
     def process(self, x: torch.Tensor, 
-                norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+                nn_params: Union[Dict[str, torch.Tensor], None] = None, 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """
         Process using the reference approach: cascade same filter twice.
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
         # Lowpass path: apply Butterworth LP twice (cascaded)
         if dsp_params is not None:
             low = self.lowpass_butter.process(x, dsp_params=dsp_params)
             low = self.lowpass_butter.process(low, dsp_params=dsp_params)
         else:
-            low = self.lowpass_butter.process(x, norm_params=norm_params)
-            low = self.lowpass_butter.process(low, norm_params=norm_params)
+            low = self.lowpass_butter.process(x, nn_params=nn_params)
+            low = self.lowpass_butter.process(low, nn_params=nn_params)
         
         # Highpass path: apply Butterworth HP twice (cascaded)  
         if dsp_params is not None:
             high = self.highpass_butter.process(x, dsp_params=dsp_params)
             high = self.highpass_butter.process(high, dsp_params=dsp_params)
         else:
-            high = self.highpass_butter.process(x, norm_params=norm_params)
-            high = self.highpass_butter.process(high, norm_params=norm_params)
+            high = self.highpass_butter.process(x, nn_params=nn_params)
+            high = self.highpass_butter.process(high, nn_params=nn_params)
         
         return torch.cat((low, high), dim=1)
     
     def get_separate_outputs(self, x: torch.Tensor, 
-                           norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+                           nn_params: Union[Dict[str, torch.Tensor], None] = None, 
                            dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """Get separate lowpass and highpass outputs."""
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
         # Lowpass: Butterworth applied twice
         if dsp_params is not None:
             low = self.lowpass_butter.process(x, dsp_params=dsp_params)
             low = self.lowpass_butter.process(low, dsp_params=dsp_params)
         else:
-            low = self.lowpass_butter.process(x, norm_params=norm_params)
-            low = self.lowpass_butter.process(low, norm_params=norm_params)
+            low = self.lowpass_butter.process(x, nn_params=nn_params)
+            low = self.lowpass_butter.process(low, nn_params=nn_params)
         
         # Highpass: Butterworth applied twice
         if dsp_params is not None:
             high = self.highpass_butter.process(x, dsp_params=dsp_params)
             high = self.highpass_butter.process(high, dsp_params=dsp_params)
         else:
-            high = self.highpass_butter.process(x, norm_params=norm_params)
-            high = self.highpass_butter.process(high, norm_params=norm_params)
+            high = self.highpass_butter.process(x, nn_params=nn_params)
+            high = self.highpass_butter.process(high, nn_params=nn_params)
         
         return low, high
     

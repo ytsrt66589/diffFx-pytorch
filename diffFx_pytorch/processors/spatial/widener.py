@@ -42,12 +42,12 @@ class StereoWidener(ProcessorsBase):
             'width': EffectParam(min_val=0.0, max_val=1.0),
         } 
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the stereo widener.
         
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                 - 'width': Stereo width control (0 to 1)
                     0.0: Mono/centered
@@ -61,7 +61,7 @@ class StereoWidener(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
@@ -69,11 +69,11 @@ class StereoWidener(ProcessorsBase):
         Raises:
             AssertionError: If input is not stereo (two channels)
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
         # get parameters 
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         
@@ -186,13 +186,13 @@ class MultiBandStereoWidener(ProcessorsBase):
             side * (2 * width)        # Scale side based on width
         )
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, 
                 dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> torch.Tensor:
         """Process input signal through the multi-band stereo imager.
         
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                 - 'bandi_width': Width control for band i (0 to 1)
                 - 'crossoveri_freq': Frequency between band i and band i+1 (0 to 1)
@@ -204,7 +204,7 @@ class MultiBandStereoWidener(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
@@ -212,10 +212,10 @@ class MultiBandStereoWidener(ProcessorsBase):
         Raises:
             AssertionError: If input is not stereo (two channels)
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
             
@@ -235,12 +235,12 @@ class MultiBandStereoWidener(ProcessorsBase):
         # Apply crossovers in series
         for i, crossover in enumerate(self.crossovers):
             # Split mid signal
-            mid_lh = crossover.process(current_mid, norm_params=None,dsp_params={
+            mid_lh = crossover.process(current_mid, nn_params=None,dsp_params={
                 'frequency': params[f'crossover{i}_freq']
             })
             mid_low, mid_high = torch.split(mid_lh, (1,1), dim=-2)
             # Split side signal (using same crossover frequency)
-            side_lh = crossover.process(current_side, norm_params=None,dsp_params={
+            side_lh = crossover.process(current_side, nn_params=None,dsp_params={
                 'frequency': params[f'crossover{i}_freq']
             })
             side_low, side_high = torch.split(side_lh, (1,1), dim=-2)

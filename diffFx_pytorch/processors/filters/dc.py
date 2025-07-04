@@ -28,14 +28,14 @@ class DCFilter(ProcessorsBase):
             'frequency': EffectParam(min_val=0.0, max_val=20.0),  # Crossover frequency
         }
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None]=None, dsp_params: Union[Dict[str, torch.Tensor], None] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         
         if self.learnable:
-            check_params(norm_params, dsp_params)
+            check_params(nn_params, dsp_params)
             if dsp_params is not None:
                 frequency = dsp_params['frequency']
             else:
-                frequency = self.map_parameters(norm_params)['frequency']
+                frequency = self.map_parameters(nn_params)['frequency']
             # Set Q factor for Butterworth response (Q = 0.707)
             filter_params = {
                 'frequency': frequency,

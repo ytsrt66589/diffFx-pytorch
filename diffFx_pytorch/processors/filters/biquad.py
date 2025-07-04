@@ -162,26 +162,26 @@ class BiquadFilter(ProcessorsBase):
     def process(
         self, 
         x: torch.Tensor, 
-        norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ):
         """Process input signal through the biquad filter.
         
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
             dsp_params (Dict[str, torch.Tensor], optional): Direct DSP parameters.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
                 
         Returns:
             torch.Tensor: Filtered audio tensor of same shape as input
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
         # get parameters
-        if norm_params is not None:
+        if nn_params is not None:
             
-            params = self.map_parameters(norm_params) # map normalized parameters to DSP values
+            params = self.map_parameters(nn_params) # map normalized parameters to DSP values
             frequency = params['frequency']
             q_factor = params['q_factor']
             gain_db = params['gain_db']

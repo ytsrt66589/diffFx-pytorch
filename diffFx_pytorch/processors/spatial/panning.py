@@ -37,12 +37,12 @@ class StereoPanning(ProcessorsBase):
             'pan': EffectParam(min_val=0.0, max_val=1.0),
         } 
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the stereo panner.
         
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 1, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                 - 'pan': Stereo position from left to right (0 to 1)
                 Each value should be a tensor of shape (batch_size,)
@@ -53,7 +53,7 @@ class StereoPanning(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
@@ -61,10 +61,10 @@ class StereoPanning(ProcessorsBase):
         Raises:
             AssertionError: If input is not mono (single channel)
         """
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         

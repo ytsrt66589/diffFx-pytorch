@@ -40,12 +40,12 @@ class BasicDelay(ProcessorsBase):
             'mix': EffectParam(min_val=0.0, max_val=1.0)
         }
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the delay line.
         
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                 - 'delay_ms': Delay time in milliseconds (0 to 1)
                 - 'mix': Wet/dry balance (0 to 1)
@@ -57,15 +57,15 @@ class BasicDelay(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
         # Set proper configuration
-        check_params(norm_params, dsp_params)
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        check_params(nn_params, dsp_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         delay_ms, mix = params['delay_ms'], params['mix']
@@ -123,12 +123,12 @@ class BasicFeedbackDelay(ProcessorsBase):
             'ff_gain': EffectParam(min_val=0.0, max_val=0.99)
         }
     
-    def process(self, x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None , dsp_params: Union[Dict[str, torch.Tensor], None] = None):
+    def process(self, x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None , dsp_params: Union[Dict[str, torch.Tensor], None] = None):
         """Process input signal through the feedback delay line.
 
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                 - 'delay_ms': Base delay time in milliseconds (0 to 1)
                 - 'fb_gain': Amount of signal fed back through delay line (0 to 1)
@@ -142,14 +142,14 @@ class BasicFeedbackDelay(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
-        check_params(norm_params, dsp_params)
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        check_params(nn_params, dsp_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         

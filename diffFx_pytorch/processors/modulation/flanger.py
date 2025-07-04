@@ -65,14 +65,14 @@ class Flanger(ProcessorsBase):
         self._register_default_parameters()
         
     def process(self, 
-        x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ) -> torch.Tensor:
         """Process input signal through the flanger effect.
     
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                     - 'delay_ms': Base delay time (0 to 1)
                     - 'rate': LFO frequency (0 to 1)
@@ -86,14 +86,14 @@ class Flanger(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
-        check_params(norm_params, dsp_params)
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        check_params(nn_params, dsp_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         batch_size, n_ch, n_samples = x.shape
@@ -167,7 +167,7 @@ class StereoFlanger(ProcessorsBase):
         self._register_default_parameters()
         
     def process(self, 
-        x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ) -> torch.Tensor:
         """Process input signal through the stereo flanger effect.
@@ -175,7 +175,7 @@ class StereoFlanger(ProcessorsBase):
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, 2, samples)
                 Must be stereo input (2 channels).
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                     - 'delay_ms': Base delay time (0 to 1)
                     - 'rate': LFO frequency (0 to 1)
@@ -189,7 +189,7 @@ class StereoFlanger(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed stereo audio tensor. Shape: (batch, 2, samples)
@@ -198,10 +198,10 @@ class StereoFlanger(ProcessorsBase):
             AssertionError: If input is not stereo (2 channels)
         """
         # Get parameters
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         # Set proper configuration
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         
@@ -276,14 +276,14 @@ class FeedbackFlanger(ProcessorsBase):
         self._register_default_parameters()
         
     def process(self, 
-        x: torch.Tensor, norm_params: Union[Dict[str, torch.Tensor], None] = None, 
+        x: torch.Tensor, nn_params: Union[Dict[str, torch.Tensor], None] = None, 
         dsp_params: Union[Dict[str, torch.Tensor], None] = None
     ) -> torch.Tensor:
         """Process input signal through the feedback flanger effect.
    
         Args:
             x (torch.Tensor): Input audio tensor. Shape: (batch, channels, samples)
-            norm_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
+            nn_params (Dict[str, torch.Tensor]): Normalized parameters (0 to 1)
                 Must contain the following keys:
                     - 'delay_ms': Base delay time (0 to 1)
                     - 'rate': LFO frequency (0 to 1)
@@ -298,16 +298,16 @@ class FeedbackFlanger(ProcessorsBase):
                 - 1D tensor: Batch of values matching input batch size
                 Parameters will be automatically expanded to match batch size
                 and moved to input device if necessary.
-                If provided, norm_params must be None.
+                If provided, nn_params must be None.
 
         Returns:
             torch.Tensor: Processed audio tensor of same shape as input
         """
         # Get parameters
-        check_params(norm_params, dsp_params)
+        check_params(nn_params, dsp_params)
         # Set proper configuration
-        if norm_params is not None:
-            params = self.map_parameters(norm_params)
+        if nn_params is not None:
+            params = self.map_parameters(nn_params)
         else:
             params = dsp_params
         
