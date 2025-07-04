@@ -136,11 +136,12 @@ class Compressor(ProcessorsBase):
         
         # Compute gain reduction using _compute_gain method
         g_c = self._compute_gain(
-            x_db.squeeze(-2),  
+            x_db,  
             threshold_db.squeeze(-1),
             ratio.squeeze(-1),
             knee_db.squeeze(-1)
         )  
+        print('> g_c', g_c.shape)
 
         alpha = torch.stack([
             ms_to_alpha(attack_ms.squeeze(-1), self.sample_rate),
@@ -314,7 +315,7 @@ class MultiBandCompressor(ProcessorsBase):
         x_db = 20 * torch.log10(torch.abs(x_side).clamp(eps))
 
         g_c = self._compute_gain(
-            x_db.squeeze(-2),  
+            x_db,  
             threshold_db.squeeze(-1),
             ratio.squeeze(-1),
             knee_db.squeeze(-1)

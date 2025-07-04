@@ -99,7 +99,7 @@ class Expander(Compressor):
         x_db = self._compute_level_db(x_side)
 
         g_c = self._compute_gain(
-            x_db.squeeze(-2),  
+            x_db,  
             threshold_db.squeeze(-1),
             ratio.squeeze(-1),
             knee_db.squeeze(-1)

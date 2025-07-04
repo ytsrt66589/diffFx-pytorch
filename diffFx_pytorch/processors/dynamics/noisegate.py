@@ -56,115 +56,9 @@ class NoiseGate(Expander):
             g(x) = (\\frac{1}{R} - 1) \\frac{\\text{softplus}(k(T - x))}{k}
 
         where k = exp(W) is the knee factor
-    
-    Variables:
-        - x: input level in dB
-        - T: threshold in dB
-        - R: ratio (typically 20:1 or higher for noise gates)
-        - W: knee width in dB
-
-    Args:
-        sample_rate (int): Audio sample rate in Hz. Defaults to 44100.
-        param_range (Dict[str, EffectParam], optional): Parameter ranges.
-        knee_type (str, optional): Type of gating knee curve. 
-            Must be one of: "hard", "quadratic", "exponential". Defaults to "hard".
-        smooth_type (str, optional): Type of envelope follower.
-            Must be one of: "ballistics", "iir". Defaults to "ballistics".
-
-    Attributes:
-        knee_type (str): Current knee characteristic type
-        smoothing_type (str): Current envelope follower type
-        ballistics (Ballistics): Envelope follower for attack/release
-        iir_filter (TruncatedOnePoleIIRFilter): IIR filter for smoothing
-
-    Parameters Details:
-        threshold_db: Level at which gating begins
-            - Controls where gating starts to take effect
-            - More negative values gate more of the signal
-        ratio: Amount of attenuation below threshold
-            - Higher ratios mean more aggressive gating
-            - Typical values: 20:1 to 100:1 for noise gates
-            - 1:1 means no gating
-        knee_db: Width of the transition region around threshold
-            - 0 dB creates a hard knee (sudden transition)
-            - Larger values create smoother transitions
-            - Affects how gradually gating is applied
-        attack_ms: Time taken to react to increases in level
-            - Shorter times mean faster response to transients
-            - Longer times let more of the transient through
-        release_ms: Time taken to react to decreases in level
-            - Controls how quickly gating is reduced
-            - Affects the "movement" of the gating
-
-    Note:
-        The processor supports the following parameter ranges:
-            - threshold_db: Threshold level in dB (-90 to -20)
-            - ratio: Gating ratio (1 to 100)
-            - knee_db: Knee width in dB (0 to 6)
-            - attack_ms: Attack time in ms (0.1 to 20)
-            - release_ms: Release time in ms (5 to 1000)
-
-    Warning:
-        When using with neural networks:
-            - nn_params must be in range [0, 1]
-            - Parameters will be automatically mapped to their DSP ranges
-            - Ensure your network output is properly normalized (e.g., using sigmoid)
-            - Parameter order must match _register_default_parameters()
-        
-    Examples
-    --------
-    Basic DSP Usage:
-        >>> # Create a noise gate with hard knee
-        >>> gate = NoiseGate(
-        ...     sample_rate=44100,
-        ...     knee_type="hard",
-        ...     smooth_type="ballistics"
-        ... )
-        >>> # Process audio with dsp parameters
-        >>> output = gate(input_audio, dsp_params={
-        ...     'threshold_db': -40.0,
-        ...     'ratio': 50.0,  # 50:1 ratio for aggressive gating
-        ...     'knee_db': 0.0,
-        ...     'attack_ms': 1.0,
-        ...     'release_ms': 50.0
-        ... })
-
-    Neural Network Control:
-        >>> # 1. Simple parameter prediction
-        >>> class NoiseGateController(nn.Module):
-        ...     def __init__(self, input_size, num_params):
-        ...         super().__init__()
-        ...         self.net = nn.Sequential(
-        ...             nn.Linear(input_size, 32),
-        ...             nn.ReLU(),
-        ...             nn.Linear(32, num_params),
-        ...             nn.Sigmoid()  # Ensures output is in [0,1] range
-        ...         )
-        ...     
-        ...     def forward(self, x):
-        ...         return self.net(x)
-        >>> 
-        >>> # Initialize controller
-        >>> num_params = gate.count_num_parameters()  # 5 parameters
-        >>> controller = NoiseGateController(input_size=16, num_params=num_params)
-        >>> 
-        >>> # Process with features
-        >>> features = torch.randn(batch_size, 16)  # Audio features
-        >>> nn_params = controller(features)
-        >>> output = gate(input_audio, nn_params=nn_params)
     """
     def __init__(self, sample_rate=44100, param_range=None):
-        """Initialize the noise gate.
-
-        Args:
-            sample_rate (int): Audio sample rate in Hz
-            param_range (Dict[str, EffectParam], optional): Parameter ranges.
-            knee_type (str): Type of gating knee curve
-            smooth_type (str): Type of envelope follower
-        
-        Raises:
-            ValueError: If knee_type or smooth_type is invalid
-        """
+        """Initialize the noise gate."""
         super().__init__(sample_rate, param_range)
         
         self.knee_type = "hard"
@@ -183,27 +77,7 @@ class NoiseGate(Expander):
 
     def _compute_gain(self, level_db: torch.Tensor, threshold_db: torch.Tensor,
                      ratio: torch.Tensor, knee_db: torch.Tensor) -> torch.Tensor:
-        """Compute noise gate gain based on knee type.
-        
-        A noise gate is an extreme expander that applies aggressive attenuation
-        below the threshold. The gain computation follows the same mathematical
-        form as expansion but with higher ratios.
-        
-        Args:
-            level_db (torch.Tensor): Input level in dB. Shape: (batch, time)
-            threshold_db (torch.Tensor): Threshold in dB. Shape: (batch,)
-            ratio (torch.Tensor): Gating ratio. Shape: (batch,)
-            knee_db (torch.Tensor): Knee width in dB. Shape: (batch,)
-            
-        Returns:
-            torch.Tensor: Gain reduction in dB. Shape: (batch, time)
-            
-        Note:
-            The gain computation depends on the knee_type:
-            - "hard": Sharp transition at threshold
-            - "quadratic": Smooth quadratic transition around threshold
-            - "exponential": Continuous transition using softplus
-        """
+        """Compute noise gate gain based on knee type."""
         threshold_db = threshold_db.unsqueeze(-1)  # Shape: (batch, 1)
         ratio = ratio.unsqueeze(-1)  # Shape: (batch, 1)
         knee_db = knee_db.unsqueeze(-1)  # Shape: (batch, 1)
