@@ -1,6 +1,6 @@
 [project]
 name = "diffFx_pytorch"
-version = "0.0.2"
+version = "0.0.3"
 description = "Differentiable audio effect processors in PyTorch."
 authors = [
     { name = "Yen-Tung (Arthur) Yeh" },
