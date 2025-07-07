@@ -143,7 +143,9 @@ Check [examples/processors/notebook](examples/processors/notebook) to see how ea
   - [x] Hard/Soft/Double-Soft/Cubic/ArcTanh/Rectifier/Exponential Clipper: [playground](examples/processors/notebook/play_distortion.ipynb)
   - [x] Bit Crusher 
 
+## To-do 
 
+- [] Delay-based effects should be implemented by surrogate delay for easy optimization 
 
 ## Contributing
 
